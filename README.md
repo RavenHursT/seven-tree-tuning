@@ -39,15 +39,32 @@ has its own glow-plug cycling pattern.
 HydraFlash also accepts unencrypted `.bin`; `.pcm` is not supported. These files are not XML or any
 text format, despite what some editors guess.
 
+The encryption is **Blowfish** (64-bit block, ECB mode, standard pi-digit S-boxes), confirmed by
+reverse-engineering HydraFlash 3 (`HydraFlashCS.dll`, v3.1.6.0). See
+[`tools/README.md`](tools/README.md) for the full scheme and a working decryptor/encryptor.
+
 Measured across all 15 files in this repo:
 
-- **229,384 bytes each** (`0x38008` = 224 KiB + 8 bytes), every file identical in size.
-- **Encrypted with an 8-byte-block cipher in ECB mode** (DES/3DES/Blowfish class).
-- Non-padding data measures **7.9747 bits/byte of entropy** — indistinguishable from random.
-- **A single 8-byte value repeats 14,271 times**, always on an 8-byte boundary. That is a constant
-  filler block encrypted under ECB. Compression cannot produce this; ECB does exactly this.
-- **A constant 16-byte header and 8-byte trailer are identical across every file**, regardless of
-  which tune it is — constant plaintext encrypting to constant ciphertext.
+- **229,384 bytes each** (`0x38008` = 4 banks of 57,344 bytes + an 8-byte PKCS#7 trailer).
+- **Blowfish-ECB encrypted.** Non-padding data measures **7.9747 bits/byte of entropy**.
+- **A single 8-byte value repeats 14,271 times**, always on an 8-byte boundary — the ECB encryption
+  of an erased-flash filler block (`0xFF`×8 in plaintext). ECB reveals this; a chaining mode would not.
+- **A constant 16-byte header and 8-byte trailer are identical across every file** — constant
+  plaintext under ECB.
+
+### Key derivation
+
+For a `.hcf`, the Blowfish key is tied to the chip's serial number:
+
+```
+userid = "4675636B" + <ChipSerial> + "44502D54"   # concatenated hex string
+key    = bytes.fromhex(userid)                     # = b"Fuck" + fromhex(serial) + b"DP-T"
+```
+
+`<ChipSerial>` is the first 8 characters of the chip's USB serial number, i.e. 8 hex digits → a
+12-byte key. Decrypt = Blowfish-ECB over the whole file, then reassemble the four 57,344-byte banks
+into a 256 KiB PCM image (the `.bin` Minotaur / TunerPro loads). `.efu` and downloaded files instead
+use a fixed key (`BDC3072769` / `BDC2051386`, hex-decoded to 5 bytes).
 
 ### Layout
 

@@ -1,0 +1,7 @@
+# Decrypted calibration data — kept local, never published (tune data is not ours to redistribute)
+/decrypted/
+/raw/
+
+# Python
+__pycache__/
+*.pyc
