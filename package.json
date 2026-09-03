@@ -1,0 +1,18 @@
+{
+  "name": "hcf-tool",
+  "version": "1.0.0",
+  "description": "Decrypt / encrypt Power Hungry Performance Hydra .hcf calibration files",
+  "type": "module",
+  "bin": {
+    "hcf": "dist/hcf"
+  },
+  "scripts": {
+    "build": "bun build tools/hcf.ts --compile --outfile dist/hcf",
+    "run": "dist/hcf",
+    "selftest": "dist/hcf selftest"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "license": "MIT"
+}

@@ -2,6 +2,12 @@
 /decrypted/
 /raw/
 
+# Compiled binary output
+/dist/
+
+# Node / Bun
+/node_modules/
+
 # Python
 __pycache__/
 *.pyc

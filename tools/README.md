@@ -1,25 +1,49 @@
 # tools — Hydra `.hcf` decryptor / encryptor
 
-`hcf_tool.py` decrypts and re-encrypts Power Hungry Performance Hydra `.hcf` calibration files.
-Pure Python 3, no dependencies. `blowfish_boxes.py` holds the standard Blowfish P-array and S-boxes.
+Decrypts and re-encrypts Power Hungry Performance Hydra `.hcf` calibration files. Two
+implementations, identical behaviour (verified byte-for-byte on every tune in this repo):
 
-## Usage
+- **`hcf.ts`** — TypeScript, the shipped tool. Compiles to a standalone native binary with Bun.
+- **`hcf_tool.py`** — pure Python 3 reference implementation, no dependencies.
+
+`blowfish-boxes.ts` / `blowfish_boxes.py` hold the standard Blowfish P-array and S-boxes.
+
+## Node / Bun tool (shipped)
+
+Requires [Bun](https://bun.sh) to build (`curl -fsSL https://bun.sh/install | bash`). The npm
+scripts are defined in the repo-root `package.json`:
 
 ```
-python3 hcf_tool.py decrypt <serial8> in.hcf out.bin [--raw out.raw]
-python3 hcf_tool.py encrypt <serial8> in.bin out.hcf
-python3 hcf_tool.py selftest
+npm run build                                   # bun compiles tools/hcf.ts -> ./dist/hcf (gitignored)
+npm run run -- decrypt <serial8> in.hcf out.bin # run the compiled binary
+npm run run -- encrypt <serial8> in.bin out.hcf
+npm run selftest
 ```
+
+`npm run build` produces `dist/hcf`, a ~60 MB self-contained executable (bundles the Bun runtime)
+that needs no Bun/Node/Python installed to run: `./dist/hcf decrypt <serial8> in.hcf out.bin`.
+Cross-compile with `bun build tools/hcf.ts --compile --target=bun-linux-x64 --outfile dist/hcf-linux`
+(also `bun-darwin-x64`, `bun-darwin-arm64`, `bun-windows-x64`). `dist/` is gitignored.
+
+## Python reference
+
+```
+python3 tools/hcf_tool.py decrypt <serial8> in.hcf out.bin [--raw out.raw]
+python3 tools/hcf_tool.py encrypt <serial8> in.bin out.hcf
+python3 tools/hcf_tool.py selftest
+```
+
+## Notes (both tools)
 
 - `<serial8>` — the first 8 characters of your Hydra chip's USB serial number (8 hex digits).
   HydraFlash shows the serial in its bottom-right status bar; it may also be on the chip label.
 - `decrypt` produces a **256 KiB PCM image** — load it in Minotaur or in TunerPro with a 7.3L
-  EEC-V definition (XDF). `--raw` also writes the pre-`FormatCalibration` decrypted banks.
+  EEC-V definition (XDF). `--raw` (Python) also writes the pre-`FormatCalibration` decrypted banks.
 - `encrypt` reverses it: edit the `.bin`, then re-encrypt to a `.hcf` HydraFlash will load. The
   round-trip is exact — re-encrypting an unmodified `.bin` reproduces the original `.hcf`
   byte-for-byte.
 
-The chip serial is **not** stored in this tool; it is supplied per invocation.
+The chip serial is **not** stored in either tool; it is supplied per invocation.
 
 ## How it was determined
 
