@@ -3,6 +3,28 @@
 Tune files and file-format notes for a 1996 Ford F-350 7.3L Power Stroke Diesel running a
 [Power Hungry Performance Hydra chip](https://gopowerhungry.com/pages/hydra-chip).
 
+## Vehicle
+
+The base tunes were built by JeliBuilt for this specific truck:
+
+- 1996 Ford F-350, 7.3L Power Stroke Diesel, crew cab, long bed, single rear wheel.
+- E4OD automatic transmission. Ford PCM code `TDE1`.
+
+Stock except for:
+
+- **34" tires.** Stock is LT235/85R16 ≈ 31.7". 34" is about 7% larger in diameter, so actual road
+  speed runs ~7% above the speed the PCM computes, and speed-based shift points arrive later on the
+  road than the tables say.
+- **Billet torque converter**, plus a towing shift-kit manifold in the transmission.
+- **Full Force Diesel Stage 1.5 injectors — 180cc / 30% nozzles**
+  (<https://www.fullforcediesel.com/73-powerstroke-stage-1-5-injectors-ffdst15>). This 30% nozzle
+  size is the `30N` field in the filenames.
+- **Full DiamondBack 4" straight-pipe exhaust, catalytic converter deleted.**
+- 193,000 miles on the engine. Transmission rebuilt in 2025 (a few thousand miles since).
+
+Tuning impact: the 30% nozzles change fueling headroom, the converter and shift kit change shift
+feel and lockup behaviour, and the larger tires shift the vehicle-speed and shift-schedule tables.
+
 ## What's here
 
 | Path | Contents |
@@ -17,17 +39,21 @@ present in the current set — is retained in git history at
 
 ## Filename convention
 
-Power Hungry's naming is *PCM hex code + horsepower over stock + usage application*:
+These files are named *PCM code + injector nozzle size + usage application*:
 
 ```
 TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf
 └┬─┘ └┬┘ └────┬─────┘ └─┬──┘ └────┬─────┘
  │    │       │         │         └─ tuner's note on what changed
  │    │       │         └─ revision letter
- │    │       └─ usage application
- │    └─ 30 hp over stock ("N" appears to denote stock nozzles/injectors — unconfirmed)
+ │    │       └─ usage application (Daily Driver, Hot Street, Tow Performance, ...)
+ │    └─ 30% nozzles — the tune targets the truck's 30% injectors (Full Force Diesel Stage 1.5)
  └─ Ford PCM code
 ```
+
+Power Hungry's generic convention is *hex code + horsepower-over-stock + usage*. JeliBuilt's files
+for this truck instead put the injector nozzle size in the middle field: `30N` = 30% nozzles, which
+matches the installed Full Force Diesel Stage 1.5 (180cc / 30%) injectors (see Vehicle above).
 
 `TDE1` is the factory PCM code for a 1994½–1996 7.3L with an automatic transmission. It holds
 torque-converter lockup down to 20 mph or brake application, shifts into overdrive at 38 mph, and
