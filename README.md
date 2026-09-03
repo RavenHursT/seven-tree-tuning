@@ -9,11 +9,13 @@ Calibrations authored by [JeliBuilt Performance](https://www.jelibuiltperformanc
 
 | Path | Contents |
 |---|---|
-| `tunes/version-1/` | 6 tunes, dated 2025-01-28 |
-| `tunes/version-2/` | 9 tunes, dated 2025-08-16 to 2025-08-28, including revisions B–E of Daily Driver |
+| `tunes/` | 9 tunes, dated 2025-08-16 to 2025-08-28, including revisions B–E of Daily Driver |
 
-Directory names use hyphens (`version-1`) where the source folders used spaces (`version 1`).
 File contents are unmodified — byte-for-byte copies, verified by SHA-256.
+
+An earlier set of 6 tunes dated 2025-01-28 — including a `TDE1_30N_HI-IDLE_1100RPM` calibration not
+present in the current set — is retained in git history at
+[`b0b084c`](https://github.com/RavenHursT/seven-tree-tuning/commit/b0b084ce4eb5eb31917aa8f6d56e55fa5ad87a0c).
 
 ## Filename convention
 
@@ -74,7 +76,7 @@ Because ECB encrypts each block independently, a change to one plaintext byte al
 `DAILYDRIVER-REVD` vs `DAILYDRIVER-REVD-DOWNSHIFTCHG` differ in **exactly 4 blocks**:
 `0x105d0`, `0x10648`, `0x10650`, `0x10658`. A shift-behaviour change touched four blocks, nothing else.
 
-Across the whole version-2 set, relative to `DAILYDRIVER-REVB`:
+Across the whole set, relative to `DAILYDRIVER-REVB`:
 
 | File | 8-byte blocks differing | Range |
 |---|---|---|
