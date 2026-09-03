@@ -5,7 +5,7 @@ Tune files and file-format notes for a 1996 Ford F-350 7.3L Power Stroke Diesel 
 
 ## Vehicle
 
-The base tunes were built by JeliBuilt for this specific truck:
+The base tunes were built for this specific truck:
 
 - 1996 Ford F-350, 7.3L Power Stroke Diesel, crew cab, long bed, single rear wheel.
 - E4OD automatic transmission. Ford PCM code `TDE1`.
@@ -51,9 +51,9 @@ TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf
  └─ Ford PCM code
 ```
 
-Power Hungry's generic convention is *hex code + horsepower-over-stock + usage*. JeliBuilt's files
-for this truck instead put the injector nozzle size in the middle field: `30N` = 30% nozzles, which
-matches the installed Full Force Diesel Stage 1.5 (180cc / 30%) injectors (see Vehicle above).
+Power Hungry's generic convention is *hex code + horsepower-over-stock + usage*. The tunes for this
+truck instead put the injector nozzle size in the middle field: `30N` = 30% nozzles, which matches
+the installed Full Force Diesel Stage 1.5 (180cc / 30%) injectors (see Vehicle above).
 
 `TDE1` is the factory PCM code for a 1994½–1996 7.3L with an automatic transmission. It holds
 torque-converter lockup down to 20 mph or brake application, shifts into overdrive at 38 mph, and
