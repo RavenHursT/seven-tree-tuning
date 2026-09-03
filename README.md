@@ -3,8 +3,6 @@
 Tune files and file-format notes for a 1996 Ford F-350 7.3L Power Stroke Diesel running a
 [Power Hungry Performance Hydra chip](https://gopowerhungry.com/pages/hydra-chip).
 
-Calibrations authored by [JeliBuilt Performance](https://www.jelibuiltperformance.com/).
-
 ## What's here
 
 | Path | Contents |
