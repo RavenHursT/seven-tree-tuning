@@ -1,14 +1,11 @@
 # tools — Hydra `.hcf` decryptor / encryptor
 
-Decrypts and re-encrypts Power Hungry Performance Hydra `.hcf` calibration files. Two
-implementations, identical behaviour (verified byte-for-byte on every tune in this repo):
+Decrypts and re-encrypts Power Hungry Performance Hydra `.hcf` calibration files.
 
-- **`hcf.ts`** — TypeScript, the shipped tool. Compiles to a standalone native binary with Bun.
-- **`hcf_tool.py`** — pure Python 3 reference implementation, no dependencies.
+`hcf.ts` is the tool. It compiles to a standalone native binary with Bun. `blowfish-boxes.ts`
+holds the standard Blowfish P-array and S-boxes.
 
-`blowfish-boxes.ts` / `blowfish_boxes.py` hold the standard Blowfish P-array and S-boxes.
-
-## Node / Bun tool (shipped)
+## Node / Bun tool
 
 Requires [Bun](https://bun.sh) to build (`curl -fsSL https://bun.sh/install | bash`). The npm
 scripts are defined in the repo-root `package.json`:
@@ -25,25 +22,17 @@ that needs no Bun/Node/Python installed to run: `./dist/hcf decrypt <serial8> in
 Cross-compile with `bun build tools/hcf.ts --compile --target=bun-linux-x64 --outfile dist/hcf-linux`
 (also `bun-darwin-x64`, `bun-darwin-arm64`, `bun-windows-x64`). `dist/` is gitignored.
 
-## Python reference
-
-```
-python3 tools/hcf_tool.py decrypt <serial8> in.hcf out.bin [--raw out.raw]
-python3 tools/hcf_tool.py encrypt <serial8> in.bin out.hcf
-python3 tools/hcf_tool.py selftest
-```
-
-## Notes (both tools)
+## Notes
 
 - `<serial8>` — the first 8 characters of your Hydra chip's USB serial number (8 hex digits).
   HydraFlash shows the serial in its bottom-right status bar; it may also be on the chip label.
 - `decrypt` produces a **256 KiB PCM image** — load it in Minotaur or in TunerPro with a 7.3L
-  EEC-V definition (XDF). `--raw` (Python) also writes the pre-`FormatCalibration` decrypted banks.
+  EEC-V definition (XDF).
 - `encrypt` reverses it: edit the `.bin`, then re-encrypt to a `.hcf` HydraFlash will load. The
   round-trip is exact — re-encrypting an unmodified `.bin` reproduces the original `.hcf`
   byte-for-byte.
 
-The chip serial is **not** stored in either tool; it is supplied per invocation.
+The chip serial is **not** stored in the tool; it is supplied per invocation.
 
 ## How it was determined
 
@@ -53,7 +42,7 @@ managed code is in `HydraFlashCS.dll`:
 - `HydraFlashCS.Blowfish` — textbook Blowfish: 16 rounds, big-endian block packing, F function
   `((S0[a] + S1[b]) ^ S2[c]) + S3[d]`, and the standard cyclic key schedule. The `pBase`/`sBase`
   constants are the standard hex-digits-of-pi boxes (verified: `P[0] = 0x243f6a88`,
-  `S[0][0] = 0xd1310ba6`); `blowfish_boxes.py` is those constants extracted verbatim.
+  `S[0][0] = 0xd1310ba6`); `blowfish-boxes.ts` is those constants extracted verbatim.
 - `HydraFlashCS.Cryptography` — `GetKeyByUserId`, `GetKeyData`, `Decrypt`/`Encrypt`. `Decrypt`
   runs Blowfish-ECB in place (its `RemovePadding` result is discarded — dead code).
 - `Calibrations.GetCalibrationData` — the loader. For a `.hcf` it builds the key as
