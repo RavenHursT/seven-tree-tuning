@@ -29,9 +29,12 @@ feel and lockup behaviour, and the larger tires shift the vehicle-speed and shif
 
 | Path | Contents |
 |---|---|
-| `tunes/` | 9 tunes, dated 2025-08-16 to 2025-08-28, including revisions B–E of Daily Driver |
+| `tunes/*.hcf` (base) | 9 base tunes, dated 2025-08-16 to 2025-08-28, including revisions B–E of Daily Driver. Byte-for-byte unmodified copies. |
+| `tunes/*-TIRECOMP.hcf` | 5 tunes derived from the `REVD-DOWNSHIFTCHG` bases, with the upshift speeds scaled for 34" tires — see [Shift schedule](#shift-schedule) below. |
+| `tools/` | Decryptor/encryptor, the tire-compensation script, and format notes. |
 
-File contents are unmodified — byte-for-byte copies, verified by SHA-256.
+The base files are unmodified byte-for-byte copies, verified by SHA-256. Each `-TIRECOMP` file
+differs from its base by exactly 30 bytes — the upshift speeds only.
 
 An earlier set of 6 tunes dated 2025-01-28 — including a `TDE1_30N_HI-IDLE_1100RPM` calibration not
 present in the current set — is retained in git history at
@@ -148,6 +151,42 @@ Ford PCM calibration values, per the
 
 Which parameter sits at which address is held in a separate **Resource Definition** file, not in the
 calibration. Power Hungry's definitions are encrypted and licensed per user.
+
+## Shift schedule
+
+The automatic transmission's speed-based upshift points live in the decrypted 256 KiB image as three
+curves:
+
+| Shift | Image offset | This truck, base calibration (WOT … closed throttle) |
+|---|---|---|
+| 1→2 | `0x14521` | 27 … 7 mph |
+| 2→3 | `0x14579` | 43 … 18 mph |
+| 3→4 (overdrive) | `0x145d1` | 64.5 … 38 mph |
+
+Each curve is 19 bytes of interleaved `(MPH, throttle)` pairs. The **even** bytes are the shift speed,
+stored as MPH × 2; the **odd** bytes are the throttle-position breakpoints. The torque-converter lockup
+schedule is a separate curve at `0x14649`.
+
+These offsets were found by decrypting Power Hungry's public calibration library — the `VCAB0_02_*.efu`
+files for this PCM strategy, which use a fixed key rather than the chip serial — and comparing the
+same-horsepower Tow and Daily variants, which differ only in the transmission schedule. The 3→4 offset
+was then confirmed on the truck: scaling it by itself moved the 3→overdrive shift to 38 mph on the
+speedometer.
+
+### Tire-size compensation (`-TIRECOMP` tunes)
+
+34" tires turn about 9.3% slower than the stock size the PCM assumes, so the truck reaches each shift's
+real road speed later than the tables intend. The `-TIRECOMP` tunes scale the MPH (even) bytes of all
+three upshift curves by **0.9147** — stock 31.6496″ / actual 34.6024″ — so every upshift lands at the
+correct road speed. Lockup, fueling, and timing are untouched; only those 30 bytes change per tune.
+
+Rebuild from a base tune with [`tools/tirecomp.ts`](tools/tirecomp.ts):
+
+```
+bun tools/hcf.ts decrypt <serial8> tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf base.bin
+bun tools/tirecomp.ts base.bin out.bin 0.9147
+bun tools/hcf.ts encrypt <serial8> out.bin tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG-TIRECOMP.hcf
+```
 
 ## Chip positions
 
