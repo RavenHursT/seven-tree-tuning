@@ -3,6 +3,9 @@
 Tune files and file-format notes for a 1996 Ford F-350 7.3L Power Stroke Diesel running a
 [Power Hungry Performance Hydra chip](https://gopowerhungry.com/pages/hydra-chip).
 
+> **[Full tune reference → `docs/tunes.md`](docs/tunes.md)** — every tune in `tunes/`, what it is for,
+> and its complete up- and down-shift schedule.
+
 ## Vehicle
 
 The base tunes were built for this specific truck:
@@ -30,11 +33,15 @@ feel and lockup behaviour, and the larger tires shift the vehicle-speed and shif
 | Path | Contents |
 |---|---|
 | `tunes/*.hcf` (base) | 9 base tunes, dated 2025-08-16 to 2025-08-28, including revisions B–E of Daily Driver. Byte-for-byte unmodified copies. |
-| `tunes/*-TIRECOMP.hcf` | 5 tunes derived from the `REVD-DOWNSHIFTCHG` bases, with the upshift speeds scaled for 34" tires — see [Shift schedule](#shift-schedule) below. |
+| `tunes/*-TIRECOMP.hcf` | 5 tunes derived from the `REVD-DOWNSHIFTCHG` bases, with the **upshift** speeds scaled for 34" tires. |
+| `tunes/*-TIRECOMP-UPDOWN.hcf` | 5 tunes derived from the `-TIRECOMP` tunes, with the **downshift** speeds also scaled — the ones to flash on the 34" tires. |
+| `docs/tunes.md` | Per-tune reference: purpose, variants, and the full up/down shift schedule of every tune. |
 | `tools/` | Decryptor/encryptor, the tire-compensation script, and format notes. |
 
-The base files are unmodified byte-for-byte copies, verified by SHA-256. Each `-TIRECOMP` file
-differs from its base by exactly 30 bytes — the upshift speeds only.
+The base files are unmodified byte-for-byte copies, verified by SHA-256. Each `-TIRECOMP` file differs
+from its base by exactly 30 bytes (the upshift speeds); each `-TIRECOMP-UPDOWN` file differs from its
+`-TIRECOMP` file by exactly 30 more (the downshift speeds). Full numbers are in
+[`docs/tunes.md`](docs/tunes.md).
 
 An earlier set of 6 tunes dated 2025-01-28 — including a `TDE1_30N_HI-IDLE_1100RPM` calibration not
 present in the current set — is retained in git history at
@@ -72,11 +79,11 @@ The encryption is **Blowfish** (64-bit block, ECB mode, standard pi-digit S-boxe
 reverse-engineering HydraFlash 3 (`HydraFlashCS.dll`, v3.1.6.0). See
 [`tools/README.md`](tools/README.md) for the full scheme and a working decryptor/encryptor.
 
-Measured across all 15 files in this repo:
+Measured across all 19 `.hcf` files in this repo:
 
 - **229,384 bytes each** (`0x38008` = 4 banks of 57,344 bytes + an 8-byte PKCS#7 trailer).
 - **Blowfish-ECB encrypted.** Non-padding data measures **7.9747 bits/byte of entropy**.
-- **A single 8-byte value repeats 14,271 times**, always on an 8-byte boundary — the ECB encryption
+- **A single 8-byte value repeats 14,271 times per file**, always on an 8-byte boundary — the ECB encryption
   of an erased-flash filler block (`0xFF`×8 in plaintext). ECB reveals this; a chaining mode would not.
 - **A constant 16-byte header and 8-byte trailer are identical across every file** — constant
   plaintext under ECB.
@@ -154,18 +161,22 @@ calibration. Power Hungry's definitions are encrypted and licensed per user.
 
 ## Shift schedule
 
-The automatic transmission's speed-based upshift points live in the decrypted 256 KiB image as three
-curves:
+The automatic transmission's speed-based shift points live in the decrypted 256 KiB image as six
+curves — three upshift, three downshift (values shown for `DAILYDRIVER-REVD-DOWNSHIFTCHG`):
 
-| Shift | Image offset | This truck, base calibration (WOT … closed throttle) |
+| Shift | Image offset | WOT … closed throttle |
 |---|---|---|
-| 1→2 | `0x14521` | 27 … 7 mph |
-| 2→3 | `0x14579` | 43 … 18 mph |
-| 3→4 (overdrive) | `0x145d1` | 64.5 … 38 mph |
+| 1→2 upshift | `0x14521` | 27 … 7 mph |
+| 2→3 upshift | `0x14579` | 43 … 18 mph |
+| 3→4 upshift (overdrive) | `0x145d1` | 64.5 … 38 mph |
+| 2→1 downshift | `0x145f9` | 21 … 5.5 mph |
+| 3→2 downshift | `0x14621` | 37 … 17.5 mph |
+| 4→3 downshift (out of overdrive) | `0x14649` | 63 … 36 mph |
 
 Each curve is 19 bytes of interleaved `(MPH, throttle)` pairs. The **even** bytes are the shift speed,
-stored as MPH × 2; the **odd** bytes are the throttle-position breakpoints. The torque-converter lockup
-schedule is a separate curve at `0x14649`.
+stored as MPH × 2; the **odd** bytes are the throttle-position breakpoints. (An earlier note here
+called `0x14649` the torque-converter lockup curve; it is the 4→3 downshift. The lockup schedule has
+not been located.) The full schedule of every tune is in [`docs/tunes.md`](docs/tunes.md).
 
 These offsets were found by decrypting Power Hungry's public calibration library — the `VCAB0_02_*.efu`
 files for this PCM strategy, which use a fixed key rather than the chip serial — and comparing the
@@ -178,7 +189,8 @@ speedometer.
 34" tires turn about 9.3% slower than the stock size the PCM assumes, so the truck reaches each shift's
 real road speed later than the tables intend. The `-TIRECOMP` tunes scale the MPH (even) bytes of all
 three upshift curves by **0.9147** — stock 31.6496″ / actual 34.6024″ — so every upshift lands at the
-correct road speed. Lockup, fueling, and timing are untouched; only those 30 bytes change per tune.
+correct road speed. The downshift curves, fuelling, and timing are untouched; only those 30 bytes
+change per tune.
 
 Rebuild from a base tune with [`tools/tirecomp.ts`](tools/tirecomp.ts):
 
@@ -187,6 +199,13 @@ bun tools/hcf.ts decrypt <serial8> tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.
 bun tools/tirecomp.ts base.bin out.bin 0.9147
 bun tools/hcf.ts encrypt <serial8> out.bin tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG-TIRECOMP.hcf
 ```
+
+The upshift-only comp leaves the downshift speeds where they were, which pushes some downshift points
+above their matching upshift — up to 4 mph at the 3→4 / 4→3 pair — so the transmission can hunt near
+that speed. The **`-TIRECOMP-UPDOWN`** tunes also scale the three downshift curves (`0x145f9`,
+`0x14621`, `0x14649`) by 0.9147, which restores the base files' margins. They are the version to flash
+on the 34" tires. Each one changes 30 more bytes than its `-TIRECOMP` source and nothing else; see
+[`docs/tunes.md`](docs/tunes.md) for the before/after numbers.
 
 ## Chip positions
 
