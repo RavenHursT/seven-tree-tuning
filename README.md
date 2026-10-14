@@ -1,3 +1,12 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/seven-tree-logo-dark.png">
+  <img src="assets/seven-tree-logo.png" alt="Seven-Tree logo" width="400">
+</picture>
+
+</div>
+
 # seven-tree-tuning
 
 Tune files and file-format notes for a 1996 Ford F-350 7.3L Power Stroke Diesel running a
