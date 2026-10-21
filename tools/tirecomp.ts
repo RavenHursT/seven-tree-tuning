@@ -4,6 +4,9 @@
  * and all three downshift curves) in a decrypted TDE1 256 KiB PCM image by a
  * tire-size factor, so shift points occur at the correct road speed on non-stock tires.
  *
+ * Command-line wrapper around the @seven-tree/hydra library (packages/hydra), which holds the
+ * curve offsets, the layout check and the scaling. The web editor uses the same code.
+ *
  * Works on the decrypted .bin (use tools/hcf.ts to decrypt first and encrypt after):
  *     bun tools/hcf.ts decrypt <serial8> tunes/<base>.hcf base.bin
  *     bun tools/tirecomp.ts base.bin out.bin 0.9147
@@ -19,44 +22,81 @@
  * and the transmission hunts between gears. Confirmed on the truck 2026-10-21.
  *
  * Factor 0.9147 = stock tire diameter 31.6496" / actual 34.6024" (LT265/75R16 -> 315/75R16).
+ *
+ * The tool refuses a file that does not have the TDE1 shift-curve layout, and a factor that is
+ * not a number above zero.
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import {
+  changedOffsets,
+  findLayoutIssues,
+  readTuneValues,
+  scaleShiftSpeeds,
+  speedRawToMph,
+  TDE1,
+  writeTuneValues,
+} from "@seven-tree/hydra";
+import type { ShiftCurveId, TuneValues } from "@seven-tree/hydra";
 
-const CURVES: Record<string, number> = {
-  "1->2 up": 0x14521, "2->3 up": 0x14579, "3->4/OD up": 0x145d1,
-  "2->1 down": 0x145f9, "3->2 down": 0x14621, "4/OD->3 down": 0x14649,
+const CURVE_NAMES: Record<ShiftCurveId, string> = {
+  "up-1-2": "1->2 up",
+  "up-2-3": "2->3 up",
+  "up-3-4": "3->4/OD up",
+  "down-2-1": "2->1 down",
+  "down-3-2": "3->2 down",
+  "down-4-3": "4/OD->3 down",
 };
-const LEN = 19;
 
-function main() {
-  const [inPath, outPath, factorArg] = process.argv.slice(2);
-  if (!inPath || !outPath) {
-    console.error("usage: bun tools/tirecomp.ts <in.bin> <out.bin> [factor=0.9147]");
-    process.exit(1);
+function fail(message: string): never {
+  console.error(message);
+  process.exit(1);
+}
+
+function printCurves(before: TuneValues, after: TuneValues): void {
+  for (const { id, speedOffset } of TDE1.shiftCurves) {
+    const beforeMph = before.shiftSpeedsRaw[id].map(speedRawToMph);
+    const afterMph = after.shiftSpeedsRaw[id].map(speedRawToMph);
+    const name = CURVE_NAMES[id].padEnd(12);
+    console.log(
+      `  ${name} @0x${speedOffset.toString(16)}  MPH ${beforeMph.join(",")}  ->  ${afterMph.join(",")}`,
+    );
   }
-  const factor = Number(factorArg ?? "0.9147");
-  const base = new Uint8Array(readFileSync(inPath));
-  if (base.length !== 262144) { console.error(`error: expected a 262144-byte .bin, got ${base.length}`); process.exit(1); }
-  const out = new Uint8Array(base);
+}
 
-  const expected = new Set<number>();
-  for (const off of Object.values(CURVES)) for (let i = 0; i < LEN; i += 2) expected.add(off + i);
-
-  for (const [name, off] of Object.entries(CURVES)) {
-    const before: number[] = [], after: number[] = [];
-    for (let i = 0; i < LEN; i += 2) {
-      const v = base[off + i];
-      const nv = Math.min(255, Math.max(0, Math.round(v * factor)));
-      before.push(v / 2); after.push(nv / 2);
-      out[off + i] = nv;
+/** Offsets of the 60 shift-speed bytes: the only bytes this tool may change. */
+function shiftSpeedOffsets(): Set<number> {
+  const offsets = new Set<number>();
+  for (const { speedOffset } of TDE1.shiftCurves) {
+    for (let index = 0; index < TDE1.breakpointsPerCurve; index++) {
+      offsets.add(speedOffset + 2 * index);
     }
-    console.log(`  ${name.padEnd(12)} @0x${off.toString(16)}  MPH ${before.join(",")}  ->  ${after.join(",")}`);
   }
+  return offsets;
+}
+
+function main(): void {
+  const [inPath, outPath, factorArg] = process.argv.slice(2);
+  if (!inPath || !outPath) fail("usage: bun tools/tirecomp.ts <in.bin> <out.bin> [factor=0.9147]");
+  const factor = Number(factorArg ?? "0.9147");
+  if (!Number.isFinite(factor) || factor <= 0) {
+    fail(`error: the factor must be a number above zero, got ${factorArg}`);
+  }
+  const base = new Uint8Array(readFileSync(inPath));
+  if (base.length !== 262144) fail(`error: expected a 262144-byte .bin, got ${base.length}`);
+  const issues = findLayoutIssues(base);
+  if (issues.length > 0) {
+    fail(`error: not a TDE1 shift-curve layout: ${issues.map((issue) => issue.message).join(" ")}`);
+  }
+
+  const before = readTuneValues(base);
+  const after = scaleShiftSpeeds(before, factor);
+  const out = writeTuneValues(base, after);
+  printCurves(before, after);
 
   // Safety: nothing outside the six curves' even indices may change.
-  let outside = 0;
-  for (let i = 0; i < out.length; i++) if (out[i] !== base[i] && !expected.has(i)) outside++;
-  if (outside !== 0) { console.error(`error: ${outside} bytes changed outside the shift curves`); process.exit(1); }
+  const allowed = shiftSpeedOffsets();
+  const outside = changedOffsets(base, out).filter((offset) => !allowed.has(offset)).length;
+  if (outside !== 0) fail(`error: ${outside} bytes changed outside the shift curves`);
 
   writeFileSync(outPath, out);
   console.log(`factor=${factor} -> ${outPath}`);
