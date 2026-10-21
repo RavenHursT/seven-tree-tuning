@@ -15,8 +15,10 @@ import {
   readTuneValues,
   scaleShiftSpeeds,
   speedRawToMph,
+  tireCompensationFactor,
   writeTuneValues,
   type ShiftCurveId,
+  type TireSize,
 } from "./index";
 
 // Checks the proven results recorded in README.md and docs/tunes.md against the real tunes in
@@ -147,6 +149,10 @@ const TUNE_NAMES = Object.keys(DOCUMENTED_SCHEDULES);
 /** The shipped -TIRECOMP-UPDOWN tunes used this rounded factor (31.6496 in / 34.6024 in). */
 const SHIPPED_TIRE_FACTOR = 0.9147;
 
+/** The reference and fitted tires the owner asked the tire compensation to convert between. */
+const REFERENCE_TIRE: TireSize = { widthMm: 265, aspectRatio: 75, rimDiameterIn: 16 };
+const FITTED_TIRE: TireSize = { widthMm: 315, aspectRatio: 75, rimDiameterIn: 16 };
+
 function readTune(name: string): Uint8Array {
   return new Uint8Array(readFileSync(`${tunesFolder}TDE1_30N_${name}.hcf`));
 }
@@ -191,6 +197,19 @@ describe.skipIf(!chipSerial)("the tunes in tunes/ (set HYDRA_CHIP_SERIAL to run)
         base,
         scaleShiftSpeeds(readTuneValues(base), SHIPPED_TIRE_FACTOR),
       );
+      expectSameBytes(
+        codec.encode(edited),
+        readTune(`${application}-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN`),
+      );
+    },
+  );
+
+  it.each(APPLICATIONS)(
+    "the editor's tire compensation from LT265/75R16 to 315/75R16 rebuilds %s -TIRECOMP-UPDOWN byte for byte",
+    (application) => {
+      const factor = tireCompensationFactor(FITTED_TIRE, REFERENCE_TIRE);
+      const base = decode(`${application}-REVD-DOWNSHIFTCHG`);
+      const edited = writeTuneValues(base, scaleShiftSpeeds(readTuneValues(base), factor));
       expectSameBytes(
         codec.encode(edited),
         readTune(`${application}-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN`),
