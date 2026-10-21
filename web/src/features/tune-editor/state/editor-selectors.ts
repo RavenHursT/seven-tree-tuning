@@ -1,0 +1,203 @@
+import {
+  closedThrottleIndex,
+  findShiftOverlaps,
+  idleRawToRpm,
+  shiftPointToSpeedoMph,
+  speedometerFactor,
+  speedRawToMph,
+  throttleRawToPercent,
+  TIRE_PRESETS,
+  tireDiameterIn,
+  type IdlePoint,
+  type ShiftCurveId,
+  type ShiftKind,
+  type TireSize,
+} from "@seven-tree/hydra";
+
+import type { EditorState } from "./editor-reducer";
+
+/** One visible breakpoint of a shift curve, in the shape the curve editor shows. */
+export interface ShiftCurveRowView {
+  readonly breakpointIndex: number;
+  readonly throttleRaw: number;
+  readonly throttlePercent: number;
+  /** True for the second row of a repeated throttle value. */
+  readonly isStep: boolean;
+  readonly shiftPointMph: number;
+  readonly shiftPointRaw: number;
+  readonly speedoMph: number;
+  readonly originalShiftPointMph: number;
+  readonly changed: boolean;
+}
+
+export interface CurveTableView {
+  readonly curveId: ShiftCurveId;
+  readonly title: string;
+  readonly kind: ShiftKind;
+  readonly rows: readonly ShiftCurveRowView[];
+}
+
+export interface CurveTablesView {
+  readonly upshifts: readonly CurveTableView[];
+  readonly downshifts: readonly CurveTableView[];
+}
+
+export interface ShiftOverlapView {
+  readonly id: string;
+  readonly title: string;
+  readonly detail: string;
+}
+
+export interface ChangeSummary {
+  readonly changedShiftPoints: number;
+  readonly idleChanged: boolean;
+}
+
+export interface IdleView {
+  readonly rpm: number;
+  readonly originalRpm: number;
+  readonly warning: string | undefined;
+  readonly idleCurve: readonly IdlePoint[];
+}
+
+export interface TirePresetOption {
+  readonly id: string;
+  readonly label: string;
+  readonly value: TireSize;
+  readonly note?: string;
+}
+
+const CHIP_SERIAL = /^[0-9A-F]{8}$/;
+
+/** Speedometer mph = tune mph x this factor (fitted diameter / calibration diameter). */
+export function selectSpeedometerFactor(state: EditorState): number {
+  return speedometerFactor(state.fittedTire, state.calibrationTire);
+}
+
+export function selectCurveTables(state: EditorState): CurveTablesView {
+  const { tune, values } = state;
+  if (!tune || !values) return { upshifts: [], downshifts: [] };
+
+  const factor = selectSpeedometerFactor(state);
+  const tables = tune.curves.map((curve): CurveTableView => {
+    const id = curve.definition.id;
+    const speeds = values.shiftSpeedsRaw[id];
+    const originals = tune.originalValues.shiftSpeedsRaw[id];
+    const visible = curve.breakpoints.slice(0, closedThrottleIndex(curve) + 1);
+    return {
+      curveId: id,
+      title: curve.definition.label,
+      kind: curve.definition.kind,
+      rows: visible.map((point, row) => {
+        const speedRaw = speeds[point.index] ?? 0;
+        const originalRaw = originals[point.index] ?? 0;
+        return {
+          breakpointIndex: point.index,
+          throttleRaw: point.throttleRaw,
+          throttlePercent: throttleRawToPercent(point.throttleRaw),
+          isStep: row > 0 && visible[row - 1]?.throttleRaw === point.throttleRaw,
+          shiftPointMph: speedRawToMph(speedRaw),
+          shiftPointRaw: speedRaw,
+          speedoMph: shiftPointToSpeedoMph(speedRaw, factor),
+          originalShiftPointMph: speedRawToMph(originalRaw),
+          changed: speedRaw !== originalRaw,
+        };
+      }),
+    };
+  });
+
+  return {
+    upshifts: tables.filter((table) => table.kind === "upshift"),
+    downshifts: tables.filter((table) => table.kind === "downshift"),
+  };
+}
+
+/** One line per throttle range where a downshift is at or above its upshift (gear hunting). */
+export function selectOverlapViews(state: EditorState): ShiftOverlapView[] {
+  const { tune, values } = state;
+  if (!tune || !values) return [];
+
+  return findShiftOverlaps(tune.curves, values).map((overlap) => {
+    const from = Math.round(throttleRawToPercent(overlap.throttleFromRaw));
+    const to = Math.round(throttleRawToPercent(overlap.throttleToRaw));
+    const range = from === to ? `Throttle ${from}%` : `Throttle ${from}–${to}%`;
+    const amount =
+      overlap.worstMarginMph < 0
+        ? `the downshift is up to ${(-overlap.worstMarginMph).toFixed(1)} mph above the upshift.`
+        : "the downshift equals the upshift.";
+    return {
+      id: `${overlap.upshift}:${overlap.throttleFromRaw}-${overlap.throttleToRaw}`,
+      title: `${overlap.upperGear}→${overlap.lowerGear} downshift at or above ${overlap.lowerGear}→${overlap.upperGear} upshift`,
+      detail: `${range}: ${amount}`,
+    };
+  });
+}
+
+/** Counts changed visible rows (padding entries follow their row and are not counted). */
+export function selectChangeSummary(state: EditorState): ChangeSummary {
+  const { tune, values } = state;
+  if (!tune || !values) return { changedShiftPoints: 0, idleChanged: false };
+
+  const { upshifts, downshifts } = selectCurveTables(state);
+  const changedShiftPoints = [...upshifts, ...downshifts]
+    .flatMap((table) => table.rows)
+    .filter((row) => row.changed).length;
+  const idleChanged = values.warmIdleRaw.some(
+    (raw, copy) => raw !== tune.originalValues.warmIdleRaw[copy],
+  );
+  return { changedShiftPoints, idleChanged };
+}
+
+/** Field error for a chip serial as typed; undefined while empty or when valid. */
+export function selectChipSerialError(chipSerial: string): string | undefined {
+  if (chipSerial === "" || CHIP_SERIAL.test(chipSerial)) return undefined;
+  if (/[^0-9A-F]/.test(chipSerial)) return "Use only the digits 0–9 and letters A–F.";
+  return "Enter all 8 hex digits.";
+}
+
+export function isValidChipSerial(chipSerial: string): boolean {
+  return CHIP_SERIAL.test(chipSerial);
+}
+
+/** Why "Generate Tune" is unavailable, or undefined when it is available. */
+export function selectGenerateDisabledReason(state: EditorState): string | undefined {
+  if (!state.tune) return "Load a tune first.";
+  if (!isValidChipSerial(state.chipSerial)) return "Enter the 8-digit chip serial.";
+  if (state.outputFileName.trim() === "") return "Enter an output file name.";
+  return undefined;
+}
+
+export function selectIdleView(state: EditorState): IdleView | undefined {
+  const { tune, values } = state;
+  if (!tune || !values) return undefined;
+
+  const rpm = idleRawToRpm(values.warmIdleRaw[0]);
+  const nextPoint = tune.idleCurve[2];
+  const warning =
+    nextPoint && rpm > nextPoint.rpm
+      ? `Higher than the next point on the idle curve (${nextPoint.rpm.toLocaleString("en-US")} rpm).`
+      : undefined;
+  return {
+    rpm,
+    originalRpm: idleRawToRpm(tune.originalValues.warmIdleRaw[0]),
+    warning,
+    // The first two points are the warm idle; show them as edited.
+    idleCurve: tune.idleCurve.map((point, index) => (index < 2 ? { ...point, rpm } : point)),
+  };
+}
+
+export function selectTirePresetOptions(): TirePresetOption[] {
+  return TIRE_PRESETS.map((preset) => ({
+    id: preset.id,
+    label: preset.label,
+    value: preset.tire,
+    ...(preset.note === undefined ? {} : { note: preset.note }),
+  }));
+}
+
+export function selectTireDiameters(state: EditorState): { fitted: number; calibration: number } {
+  return {
+    fitted: tireDiameterIn(state.fittedTire),
+    calibration: tireDiameterIn(state.calibrationTire),
+  };
+}
