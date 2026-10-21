@@ -9,4 +9,5 @@ export {
   libraryTuneUrl,
 } from "./locations";
 export type { LibraryTune } from "./tune-code";
+export { VALVE_BODY_NOTE } from "./modes";
 export { parseLibraryTuneCode } from "./tune-code";

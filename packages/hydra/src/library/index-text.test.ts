@@ -12,9 +12,9 @@ const SAMPLE_INDEX = readFileSync(
 );
 
 const SORTED_TDE1_CODES = [
-  // stock: horsepower 0, plain before VB, then by code
-  "0MS",
+  // stock: Stock before Modified Stock, then plain before VB
   "0S",
+  "0MS",
   "0MSVB",
   // towing
   "25T",
@@ -25,33 +25,33 @@ const SORTED_TDE1_CODES = [
   "65TVB",
   "80T",
   "80TVB",
-  // daily
+  // daily: Daily Driver before Fuel Sipper
   "40DD",
   "40DDVB",
   "65DD",
-  "65FS",
   "65DDVB",
-  "65FSVB",
   "80DD",
   "80DDVB",
+  "65FS",
+  "65FSVB",
   // performance
   "65P",
   "65PVB",
   "80P",
   "80PVB",
-  // utility: horsepower 0, plain before VB, then by code
-  "0AT",
+  // utility, in the order of PHP's Hydra page: High Idle, Anti-Theft, Whisper, Valet
   "0HI1000",
   "0HI1100",
   "0HI1200",
-  "0VM35",
-  "0WM",
-  "0ATVB",
   "0HIVB1000",
   "0HIVB1100",
   "0HIVB1200",
-  "0VMVB35",
+  "0AT",
+  "0ATVB",
+  "0WM",
   "0WMVB",
+  "0VM35",
+  "0VMVB35",
 ];
 
 function fileNamesFor(codes: readonly string[]): string[] {
@@ -70,7 +70,7 @@ describe("parseLibraryIndex on a sample of PHP's live index", () => {
     expect(tunes.every((tune) => tune.fileName.startsWith("VCAB0_02_"))).toBe(true);
   });
 
-  it("orders them by category, then horsepower, then plain before VB, then code", () => {
+  it("orders them by category, then mode as PHP lists them, then horsepower, plain before VB, then code", () => {
     expect(codesOf(parseLibraryIndex(SAMPLE_INDEX))).toEqual(SORTED_TDE1_CODES);
   });
 

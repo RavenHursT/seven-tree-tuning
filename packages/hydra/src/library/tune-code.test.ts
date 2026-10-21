@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseLibraryTuneCode } from "./index";
+import { parseLibraryTuneCode, VALVE_BODY_NOTE } from "./index";
 import type { LibraryCategory } from "./index";
 
 type ExpectedTune = readonly [
@@ -130,22 +130,21 @@ describe("parseLibraryTuneCode descriptions", () => {
     expect(description).toContain("forums");
   });
 
-  it("marks every valve body variant as a forum report and explains it", () => {
-    const description = parseLibraryTuneCode("0ATVB")?.description;
-    expect(description).toContain("modified valve body");
-    expect(description).toContain("softer shifts");
-    expect(description).toContain("forums");
+  it("explains the VB suffix once, as a forum report, instead of in every description", () => {
+    expect(VALVE_BODY_NOTE).toContain("modified valve body");
+    expect(VALVE_BODY_NOTE).toContain("softer shifts");
+    expect(VALVE_BODY_NOTE).toContain("forums");
+    expect(parseLibraryTuneCode("0ATVB")?.description).toBeUndefined();
   });
 
-  it("puts the tow load class first and the valve body note after it", () => {
-    const description = parseLibraryTuneCode("65TVB")?.description;
-    expect(description).toMatch(/^Moderate loads, 7,500–10,000 lb\. VB means a transmission/);
+  it("gives a valve body tow variant the load class of the plain tune", () => {
+    expect(parseLibraryTuneCode("65TVB")?.description).toBe("Moderate loads, 7,500–10,000 lb");
   });
 
-  it("keeps both forum notes for a Fuel Sipper valve body variant", () => {
+  it("keeps the Fuel Sipper note on its valve body variant", () => {
     const description = parseLibraryTuneCode("65FSVB")?.description;
     expect(description).toContain("Fuel Sipper");
-    expect(description).toContain("modified valve body");
+    expect(description).not.toContain("valve body");
   });
 
   it("gives the short note PHP prints for the diagnostic, quiet and speed limit modes", () => {

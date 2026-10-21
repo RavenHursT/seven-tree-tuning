@@ -1,5 +1,5 @@
 import type { LibraryCategory } from "./categories";
-import { LIBRARY_MODES, VALVE_BODY_NOTE } from "./modes";
+import { LIBRARY_MODES } from "./modes";
 import type { LibraryModeDefinition } from "./modes";
 
 /** One tune in PHP's public library. */
@@ -73,13 +73,9 @@ function buildLabel(parts: LabelParts): string {
 function buildDescription(
   definition: LibraryModeDefinition | undefined,
   horsepower: number,
-  valveBody: boolean,
 ): string | undefined {
-  const sentences = [
-    definition?.descriptionByHorsepower?.get(horsepower) ?? definition?.description,
-    valveBody ? VALVE_BODY_NOTE : undefined,
-  ].filter((sentence): sentence is string => sentence !== undefined);
-  return sentences.length > 0 ? sentences.join(". ") : undefined;
+  // The VB note is the same for every valve body variant, so it lives in VALVE_BODY_NOTE.
+  return definition?.descriptionByHorsepower?.get(horsepower) ?? definition?.description;
 }
 
 /**
@@ -93,7 +89,7 @@ export function parseLibraryTuneCode(code: string): LibraryTuneDetails | undefin
   const { horsepower, mode, valveBody, parameter } = parts;
   const definition = LIBRARY_MODES.get(mode);
   const modeName = definition?.name ?? mode;
-  const description = buildDescription(definition, horsepower, valveBody);
+  const description = buildDescription(definition, horsepower);
   const parameterUnit = definition?.parameterUnit;
   return {
     horsepower,

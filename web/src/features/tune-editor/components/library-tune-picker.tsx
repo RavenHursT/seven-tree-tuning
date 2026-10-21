@@ -203,7 +203,7 @@ function TuneListbox({
       role="listbox"
       aria-label="Public library tunes"
       onKeyDown={moveFocusWithKeys}
-      className="flex flex-col gap-4"
+      className="flex max-h-[26rem] flex-col gap-4 overflow-y-auto pr-1"
     >
       {groupByCategoryLabel(tunes).map((group, index) => (
         <TuneGroupSection

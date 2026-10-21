@@ -1,5 +1,6 @@
 import { LIBRARY_CATEGORY_ORDER } from "./categories";
 import { LIBRARY_FILE_EXTENSION, TDE1_LIBRARY_PREFIX, isLibraryFileName } from "./locations";
+import { LIBRARY_MODES } from "./modes";
 import { parseLibraryTuneCode } from "./tune-code";
 import type { LibraryTune } from "./tune-code";
 
@@ -10,10 +11,19 @@ function compareText(first: string, second: string): number {
   return first > second ? 1 : 0;
 }
 
+const MODE_ORDER = [...LIBRARY_MODES.keys()];
+
+/** Known modes in the order PHP's Hydra page lists them; unknown modes after them. */
+function modeRank(mode: string): number {
+  const rank = MODE_ORDER.indexOf(mode);
+  return rank === -1 ? MODE_ORDER.length : rank;
+}
+
 function compareTunes(first: LibraryTune, second: LibraryTune): number {
   return (
     LIBRARY_CATEGORY_ORDER.indexOf(first.category) -
       LIBRARY_CATEGORY_ORDER.indexOf(second.category) ||
+    modeRank(first.mode) - modeRank(second.mode) ||
     first.horsepower - second.horsepower ||
     Number(first.valveBody) - Number(second.valveBody) ||
     compareText(first.code, second.code)
@@ -29,8 +39,8 @@ function readFileName(fileName: string, prefix: string): LibraryTune | undefined
 
 /**
  * Reads PHP's index text (one file name per line, any line ending) into the tunes whose names
- * start with `prefix`. Other lines are ignored. Sorted by category, horsepower, plain before VB,
- * then code.
+ * start with `prefix`. Other lines are ignored. Sorted by category, then mode in the order PHP's
+ * Hydra page lists them, then horsepower, plain before VB, then code.
  */
 export function parseLibraryIndex(
   indexText: string,
