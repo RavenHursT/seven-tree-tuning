@@ -24,10 +24,11 @@ See the [README](../README.md) for the vehicle build, the `.hcf` format, and the
 The three variants of each application:
 
 - **base** — the tuner's file, unmodified.
-- **TIRECOMP** — the base with the three **upshift** curves scaled by 0.9147 for the 34" tires.
-- **TIRECOMP-UPDOWN** — the TIRECOMP file with the three **downshift** curves scaled by the same
-  0.9147. **For the 34" tires this is the one to flash** — it keeps every downshift below its matching
-  upshift, which the upshift-only version does not.
+- **TIRECOMP-UPDOWN** — the base with all three **upshift** curves and all three **downshift** curves
+  scaled by 0.9147 for the 34" tires. **For the 34" tires this is the one to flash.**
+
+An upshift-only variant (`-TIRECOMP`) existed until 2026-10-21. It made the transmission hunt between
+3rd and overdrive and was removed; its numbers stay in the tables below, marked "removed", to show why.
 
 | File | Application | Variant | Tire comp |
 |---|---|---|---|
@@ -35,20 +36,15 @@ The three variants of each application:
 | [DAILYDRIVER-REVC](../tunes/TDE1_30N_DAILYDRIVER-REVC.hcf) | Daily Driver | base, revision C | none |
 | [DAILYDRIVER-REVD](../tunes/TDE1_30N_DAILYDRIVER-REVD.hcf) | Daily Driver | base, revision D | none |
 | [DAILYDRIVER-REVD-DOWNSHIFTCHG](../tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf) | Daily Driver | base, revision D + downshift change | none |
-| [DAILYDRIVER-REVD-DOWNSHIFTCHG-TIRECOMP](../tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG-TIRECOMP.hcf) | Daily Driver | tire comp, upshift only | upshift |
 | [DAILYDRIVER-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN](../tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN.hcf) | Daily Driver | tire comp, up + down | up + down |
 | [DAILYDRIVER-REVE](../tunes/TDE1_30N_DAILYDRIVER-REVE.hcf) | Daily Driver | base, revision E | none |
 | [HOTSTREET-REVD-DOWNSHIFTCHG](../tunes/TDE1_30N_HOTSTREET-REVD-DOWNSHIFTCHG.hcf) | Hot Street | base | none |
-| [HOTSTREET-REVD-DOWNSHIFTCHG-TIRECOMP](../tunes/TDE1_30N_HOTSTREET-REVD-DOWNSHIFTCHG-TIRECOMP.hcf) | Hot Street | tire comp, upshift only | upshift |
 | [HOTSTREET-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN](../tunes/TDE1_30N_HOTSTREET-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN.hcf) | Hot Street | tire comp, up + down | up + down |
 | [EXTREMESTREET-REVD-DOWNSHIFTCHG](../tunes/TDE1_30N_EXTREMESTREET-REVD-DOWNSHIFTCHG.hcf) | Extreme Street | base | none |
-| [EXTREMESTREET-REVD-DOWNSHIFTCHG-TIRECOMP](../tunes/TDE1_30N_EXTREMESTREET-REVD-DOWNSHIFTCHG-TIRECOMP.hcf) | Extreme Street | tire comp, upshift only | upshift |
 | [EXTREMESTREET-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN](../tunes/TDE1_30N_EXTREMESTREET-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN.hcf) | Extreme Street | tire comp, up + down | up + down |
 | [STRENUOUSTOW-REVD-DOWNSHIFTCHG](../tunes/TDE1_30N_STRENUOUSTOW-REVD-DOWNSHIFTCHG.hcf) | Strenuous Tow | base | none |
-| [STRENUOUSTOW-REVD-DOWNSHIFTCHG-TIRECOMP](../tunes/TDE1_30N_STRENUOUSTOW-REVD-DOWNSHIFTCHG-TIRECOMP.hcf) | Strenuous Tow | tire comp, upshift only | upshift |
 | [STRENUOUSTOW-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN](../tunes/TDE1_30N_STRENUOUSTOW-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN.hcf) | Strenuous Tow | tire comp, up + down | up + down |
 | [TOWPERFORMANCE-REVD-DOWNSHIFTCHG](../tunes/TDE1_30N_TOWPERFORMANCE-REVD-DOWNSHIFTCHG.hcf) | Tow Performance | base | none |
-| [TOWPERFORMANCE-REVD-DOWNSHIFTCHG-TIRECOMP](../tunes/TDE1_30N_TOWPERFORMANCE-REVD-DOWNSHIFTCHG-TIRECOMP.hcf) | Tow Performance | tire comp, upshift only | upshift |
 | [TOWPERFORMANCE-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN](../tunes/TDE1_30N_TOWPERFORMANCE-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN.hcf) | Tow Performance | tire comp, up + down | up + down |
 
 ## Shift schedules
@@ -85,7 +81,7 @@ What changed, revision to revision:
 | Variant | 1→2 | 2→3 | 3→4 | 2→1 | 3→2 | 4→3 |
 |---|---|---|---|---|---|---|
 | REVD-DOWNSHIFTCHG | 27 – 7 | 43 – 18 | 64.5 – 38 | 21 – 5.5 | 37 – 17.5 | 63 – 36 |
-| TIRECOMP (up only) | 24.5 – 6.5 | 39.5 – 16.5 | 59 – 35 | 21 – 5.5 | 37 – 17.5 | 63 – 36 |
+| up-only comp (removed, hunts) | 24.5 – 6.5 | 39.5 – 16.5 | 59 – 35 | 21 – 5.5 | 37 – 17.5 | 63 – 36 |
 | TIRECOMP-UPDOWN | 24.5 – 6.5 | 39.5 – 16.5 | 59 – 35 | 19 – 5 | 34 – 16 | 57.5 – 33 |
 
 ### Hot Street
@@ -93,7 +89,7 @@ What changed, revision to revision:
 | Variant | 1→2 | 2→3 | 3→4 | 2→1 | 3→2 | 4→3 |
 |---|---|---|---|---|---|---|
 | REVD-DOWNSHIFTCHG | 25 – 7.5 | 41 – 19 | 64.5 – 38.5 | 21 – 5.5 | 37 – 17.5 | 62.5 – 35.5 |
-| TIRECOMP (up only) | 23 – 7 | 37.5 – 17.5 | 59 – 35 | 21 – 5.5 | 37 – 17.5 | 62.5 – 35.5 |
+| up-only comp (removed, hunts) | 23 – 7 | 37.5 – 17.5 | 59 – 35 | 21 – 5.5 | 37 – 17.5 | 62.5 – 35.5 |
 | TIRECOMP-UPDOWN | 23 – 7 | 37.5 – 17.5 | 59 – 35 | 19 – 5 | 34 – 16 | 57 – 32.5 |
 
 ### Extreme Street
@@ -101,7 +97,7 @@ What changed, revision to revision:
 | Variant | 1→2 | 2→3 | 3→4 | 2→1 | 3→2 | 4→3 |
 |---|---|---|---|---|---|---|
 | REVD-DOWNSHIFTCHG | 25 – 7.5 | 41 – 19 | 64.5 – 39 | 21 – 5.5 | 37 – 17.5 | 62.5 – 36 |
-| TIRECOMP (up only) | 23 – 7 | 37.5 – 17.5 | 59 – 35.5 | 21 – 5.5 | 37 – 17.5 | 62.5 – 36 |
+| up-only comp (removed, hunts) | 23 – 7 | 37.5 – 17.5 | 59 – 35.5 | 21 – 5.5 | 37 – 17.5 | 62.5 – 36 |
 | TIRECOMP-UPDOWN | 23 – 7 | 37.5 – 17.5 | 59 – 35.5 | 19 – 5 | 34 – 16 | 57 – 33 |
 
 ### Strenuous Tow
@@ -109,7 +105,7 @@ What changed, revision to revision:
 | Variant | 1→2 | 2→3 | 3→4 | 2→1 | 3→2 | 4→3 |
 |---|---|---|---|---|---|---|
 | REVD-DOWNSHIFTCHG | 27 – 10 | 43 – 22 | 65 – 39 | 21 – 9 | 37 – 17.5 | 62.5 – 37 |
-| TIRECOMP (up only) | 24.5 – 9 | 39.5 – 20 | 59.5 – 35.5 | 21 – 9 | 37 – 17.5 | 62.5 – 37 |
+| up-only comp (removed, hunts) | 24.5 – 9 | 39.5 – 20 | 59.5 – 35.5 | 21 – 9 | 37 – 17.5 | 62.5 – 37 |
 | TIRECOMP-UPDOWN | 24.5 – 9 | 39.5 – 20 | 59.5 – 35.5 | 19 – 8 | 34 – 16 | 57 – 34 |
 
 ### Tow Performance
@@ -117,7 +113,7 @@ What changed, revision to revision:
 | Variant | 1→2 | 2→3 | 3→4 | 2→1 | 3→2 | 4→3 |
 |---|---|---|---|---|---|---|
 | REVD-DOWNSHIFTCHG | 27 – 10 | 43 – 22 | 64 – 39 | 21 – 9 | 37 – 17.5 | 62.5 – 37 |
-| TIRECOMP (up only) | 24.5 – 9 | 39.5 – 20 | 58.5 – 35.5 | 21 – 9 | 37 – 17.5 | 62.5 – 37 |
+| up-only comp (removed, hunts) | 24.5 – 9 | 39.5 – 20 | 58.5 – 35.5 | 21 – 9 | 37 – 17.5 | 62.5 – 37 |
 | TIRECOMP-UPDOWN | 24.5 – 9 | 39.5 – 20 | 58.5 – 35.5 | 19 – 8 | 34 – 16 | 57 – 34 |
 
 ### Why the up + down version exists
@@ -134,7 +130,7 @@ What the tune-to-tune byte comparison shows. The exact engineering meaning of ea
 value needs Power Hungry's licensed definition file; those claims are marked.
 
 - **Shift and power are separate.** The tire-comp and up+down variants change only the shift curves.
-  Within one application, the base, TIRECOMP, and UPDOWN files have identical power and fuelling.
+  Within one application, the base and UPDOWN files have identical power and fuelling.
 - **Power curve (`0x125cc`):** identical in all 19 tunes.
 - **Power map (`0x13974`, an 11 × 11 map):**
   - Daily Driver, Strenuous Tow, and Tow Performance share one version.
@@ -158,7 +154,7 @@ value needs Power Hungry's licensed definition file; those claims are marked.
   Their function is unknown. Identifying them needs either the licensed definition file or a
   single-change road test.
 - **Torque-converter lockup** has not been located. The curve at `0x14649`, once thought to be
-  lockup, is the 4→3 downshift (see the correction below).
+  lockup, is the 4→3 downshift (confirmed on the truck on 2026-10-21; see the correction below).
 - Several other fuel and timing values differ between applications (for example the group of
   structures around `0x12ed2`–`0x13122`); their exact meanings need the definition file.
 
@@ -168,9 +164,8 @@ Each curve is 19 bytes: ten shift-speed values interleaved with nine throttle br
 shift-speed bytes are stored as **mph × 2**. The tire comp scales only those speed bytes, by 0.9147
 (stock rolling diameter 31.6496″ ÷ actual 34.6024″), and leaves the throttle breakpoints alone.
 
-- **Upshift tire comp** scales the speed bytes of the three upshift curves (`0x14521`, `0x14579`,
-  `0x145d1`) — 30 bytes. Rebuild with [`tools/tirecomp.ts`](../tools/tirecomp.ts); see the
-  [README](../README.md#tire-size-compensation--tirecomp-tunes).
-- **Up + down tire comp** additionally scales the speed bytes of the three downshift curves
-  (`0x145f9`, `0x14621`, `0x14649`) — 30 more bytes, 60 in total. Each `-TIRECOMP-UPDOWN` file differs
-  from its `-TIRECOMP` file by exactly those 30 downshift bytes and nothing else.
+- **Tire comp** scales the speed bytes of the three upshift curves (`0x14521`, `0x14579`, `0x145d1`)
+  and the three downshift curves (`0x145f9`, `0x14621`, `0x14649`) — 60 bytes. Each
+  `-TIRECOMP-UPDOWN` file differs from its base by exactly those 60 bytes and nothing else. Rebuild
+  with [`tools/tirecomp.ts`](../tools/tirecomp.ts), which does all six curves in one pass; see the
+  [README](../README.md#tire-size-compensation--tirecomp-updown-tunes).

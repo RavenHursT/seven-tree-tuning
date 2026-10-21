@@ -42,14 +42,13 @@ feel and lockup behaviour, and the larger tires shift the vehicle-speed and shif
 | Path | Contents |
 |---|---|
 | `tunes/*.hcf` (base) | 9 base tunes, dated 2025-08-16 to 2025-08-28, including revisions B–E of Daily Driver. Byte-for-byte unmodified copies. |
-| `tunes/*-TIRECOMP.hcf` | 5 tunes derived from the `REVD-DOWNSHIFTCHG` bases, with the **upshift** speeds scaled for 34" tires. |
-| `tunes/*-TIRECOMP-UPDOWN.hcf` | 5 tunes derived from the `-TIRECOMP` tunes, with the **downshift** speeds also scaled — the ones to flash on the 34" tires. |
+| `tunes/*-TIRECOMP-UPDOWN.hcf` | 5 tunes derived from the `REVD-DOWNSHIFTCHG` bases, with every **upshift and downshift** speed scaled for 34" tires — the ones to flash on the 34" tires. |
 | `docs/tunes.md` | Per-tune reference: purpose, variants, and the full up/down shift schedule of every tune. |
 | `tools/` | Decryptor/encryptor, the tire-compensation script, and format notes. |
 
-The base files are unmodified byte-for-byte copies, verified by SHA-256. Each `-TIRECOMP` file differs
-from its base by exactly 30 bytes (the upshift speeds); each `-TIRECOMP-UPDOWN` file differs from its
-`-TIRECOMP` file by exactly 30 more (the downshift speeds). Full numbers are in
+The base files are unmodified byte-for-byte copies, verified by SHA-256. Each `-TIRECOMP-UPDOWN` file
+differs from its base by exactly 60 bytes: 30 upshift-speed bytes and 30 downshift-speed bytes. Full
+numbers are in
 [`docs/tunes.md`](docs/tunes.md).
 
 An earlier set of 6 tunes dated 2025-01-28 — including a `TDE1_30N_HI-IDLE_1100RPM` calibration not
@@ -185,7 +184,7 @@ curves — three upshift, three downshift (values shown for `DAILYDRIVER-REVD-DO
 Each curve is 19 bytes of interleaved `(MPH, throttle)` pairs. The **even** bytes are the shift speed,
 stored as MPH × 2; the **odd** bytes are the throttle-position breakpoints. (An earlier note here
 called `0x14649` the torque-converter lockup curve; it is the 4→3 downshift. The lockup schedule has
-not been located.) The full schedule of every tune is in [`docs/tunes.md`](docs/tunes.md).
+not been located.) The downshift addresses were confirmed on the truck on 2026-10-21. The full schedule of every tune is in [`docs/tunes.md`](docs/tunes.md).
 
 These offsets were found by decrypting Power Hungry's public calibration library — the `VCAB0_02_*.efu`
 files for this PCM strategy, which use a fixed key rather than the chip serial — and comparing the
@@ -193,28 +192,28 @@ same-horsepower Tow and Daily variants, which differ only in the transmission sc
 was then confirmed on the truck: scaling it by itself moved the 3→overdrive shift to 38 mph on the
 speedometer.
 
-### Tire-size compensation (`-TIRECOMP` tunes)
+### Tire-size compensation (`-TIRECOMP-UPDOWN` tunes)
 
 34" tires turn about 9.3% slower than the stock size the PCM assumes, so the truck reaches each shift's
-real road speed later than the tables intend. The `-TIRECOMP` tunes scale the MPH (even) bytes of all
-three upshift curves by **0.9147** — stock 31.6496″ / actual 34.6024″ — so every upshift lands at the
-correct road speed. The downshift curves, fuelling, and timing are untouched; only those 30 bytes
-change per tune.
+real road speed later than the tables intend. The `-TIRECOMP-UPDOWN` tunes scale the MPH (even) bytes
+of all three upshift curves and all three downshift curves by **0.9147** — stock 31.6496″ / actual
+34.6024″ — so every shift lands at the correct road speed. Fuelling and timing are untouched; only
+those 60 bytes change per tune.
 
 Rebuild from a base tune with [`tools/tirecomp.ts`](tools/tirecomp.ts):
 
 ```
 bun tools/hcf.ts decrypt <serial8> tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf base.bin
 bun tools/tirecomp.ts base.bin out.bin 0.9147
-bun tools/hcf.ts encrypt <serial8> out.bin tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG-TIRECOMP.hcf
+bun tools/hcf.ts encrypt <serial8> out.bin tunes/TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG-TIRECOMP-UPDOWN.hcf
 ```
 
-The upshift-only comp leaves the downshift speeds where they were, which pushes some downshift points
-above their matching upshift — up to 4 mph at the 3→4 / 4→3 pair — so the transmission can hunt near
-that speed. The **`-TIRECOMP-UPDOWN`** tunes also scale the three downshift curves (`0x145f9`,
-`0x14621`, `0x14649`) by 0.9147, which restores the base files' margins. They are the version to flash
-on the 34" tires. Each one changes 30 more bytes than its `-TIRECOMP` source and nothing else; see
-[`docs/tunes.md`](docs/tunes.md) for the before/after numbers.
+Scale the upshifts and downshifts together. An earlier upshift-only set (`-TIRECOMP`) left the
+downshift speeds where they were, which put some downshift points at or above their matching upshift —
+up to 4 mph at the 3→4 / 4→3 pair — and the transmission hunted between 3rd and overdrive at 36–38 mph.
+That set was removed on 2026-10-21; it is in git history at
+[`bdab89b`](https://github.com/RavenHursT/seven-tree-tuning/commit/bdab89b953e54db0a995a5d3fce2ccd8ebe6ad7c).
+See [`docs/tunes.md`](docs/tunes.md) for the before/after numbers.
 
 ## Chip positions
 
