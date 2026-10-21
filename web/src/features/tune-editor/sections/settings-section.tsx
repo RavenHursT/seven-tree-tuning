@@ -1,6 +1,7 @@
 "use client";
 
 import { CaretDownIcon } from "@phosphor-icons/react";
+import { formatTireSize } from "@seven-tree/hydra";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,7 @@ import {
 import { useTuneEditor } from "../tune-editor-provider";
 
 export function SettingsSection() {
-  const { state, dispatch, setChipSerial } = useTuneEditor();
+  const { state, dispatch, setChipSerial, applyTireCompensation } = useTuneEditor();
   const presets = selectTirePresetOptions();
   const diameters = selectTireDiameters(state);
   const factor = selectSpeedometerFactor(state);
@@ -70,16 +71,19 @@ export function SettingsSection() {
           <p className="text-sm">
             Speedometer mph = shift point ×{" "}
             <span className="font-semibold">{factor.toFixed(4)}</span>
+            <span className="text-muted-foreground">
+              {` (${formatTireSize(state.fittedTire)} fitted, ${formatTireSize(state.calibrationTire)} calibration)`}
+            </span>
           </p>
           <Button
             variant="secondary"
             disabled={!state.tune || factor === 1}
-            onClick={() => dispatch({ type: "tireCompensationApplied" })}
+            onClick={applyTireCompensation}
           >
             Set shift points for these tires
           </Button>
           <p className="text-xs text-muted-foreground">
-            {`Replaces every shift point with the starting tune's value × ${(1 / factor).toFixed(4)}, so each shift happens at the same road speed as on the calibration tires.`}
+            {`Replaces every shift point with the starting tune's value × ${(1 / factor).toFixed(4)}, so each shift happens at the same road speed as on ${formatTireSize(state.calibrationTire)} tires. Use it on a tune that is not already tire-compensated.`}
           </p>
         </div>
       </CardContent>

@@ -5,7 +5,7 @@ import { selectChangeSummary, selectGenerateDisabledReason } from "../state/edit
 import { useTuneEditor } from "../tune-editor-provider";
 
 export function GenerateSection() {
-  const { state, dispatch, generate, generating } = useTuneEditor();
+  const { state, dispatch, generate, generating, resetAll } = useTuneEditor();
   const summary = selectChangeSummary(state);
 
   return (
@@ -17,7 +17,7 @@ export function GenerateSection() {
       disabledReason={selectGenerateDisabledReason(state)}
       generating={generating}
       onGenerate={() => void generate()}
-      onResetAll={state.tune ? () => dispatch({ type: "allReset" }) : undefined}
+      onResetAll={state.tune ? resetAll : undefined}
     />
   );
 }

@@ -1,10 +1,8 @@
-import { assertOnlyEditableChanges, Blowfish, HcfCodec, readTuneValues } from "@seven-tree/hydra";
+import { Blowfish, changedOffsets, HcfCodec, readTuneValues } from "@seven-tree/hydra";
 import { buildTde1Image } from "@seven-tree/hydra/testing";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import { TooltipProvider } from "@/components/ui/tooltip";
 
 import type { LibraryTuneOption } from "./components/library-tune-picker";
 import { GenerateSection } from "./sections/generate-section";
@@ -42,17 +40,15 @@ function efuBytes(): Uint8Array {
 
 function renderEditor(tunes: LibraryTuneOption[] = []) {
   return render(
-    <TooltipProvider>
-      <TuneEditorProvider>
-        <UploadSection />
-        <LibrarySection tunes={tunes} sourceUrl="https://gopowerhungry.com/pages/hydra-chip" />
-        <TuneStatus />
-        <SettingsSection />
-        <ScheduleSection />
-        <IdleSection />
-        <GenerateSection />
-      </TuneEditorProvider>
-    </TooltipProvider>,
+    <TuneEditorProvider>
+      <UploadSection />
+      <LibrarySection tunes={tunes} sourceUrl="https://gopowerhungry.com/pages/hydra-chip" />
+      <TuneStatus />
+      <SettingsSection />
+      <ScheduleSection />
+      <IdleSection />
+      <GenerateSection />
+    </TuneEditorProvider>,
   );
 }
 
@@ -83,7 +79,24 @@ async function openTune(user: ReturnType<typeof userEvent.setup>) {
 afterEach(() => {
   delete (window as SaveDialogWindow).showSaveFilePicker;
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
+
+/** Drops a file on the drop zone. Unlike the file input, a drop is not filtered by `accept`. */
+function dropFile(file: File) {
+  const zone = screen
+    .getByText(/drop a file here/i)
+    .closest<HTMLElement>('[data-slot="file-drop-zone"]');
+  if (!zone) throw new Error("drop zone not found");
+  fireEvent.drop(zone, { dataTransfer: { files: [file], types: ["Files"] } });
+}
+
+async function editWarmIdle(user: ReturnType<typeof userEvent.setup>, rpm: string) {
+  const idle = screen.getByRole("textbox", { name: "Warm idle (rpm)" });
+  await user.clear(idle);
+  await user.type(idle, rpm);
+  await user.tab();
+}
 
 describe("tune editor", () => {
   it("asks for the chip serial before it opens a .hcf, then opens it", async () => {
@@ -191,7 +204,8 @@ describe("tune editor", () => {
     // The baseline is the uploaded tune as decoded: a .hcf carries only the four banks, so the
     // 8 KiB gaps between them always decode to 0xFF.
     const uploaded = new HcfCodec(SERIAL).decode(new HcfCodec(SERIAL).encode(buildTde1Image()));
-    expect(() => assertOnlyEditableChanges(uploaded, image)).not.toThrow();
+    // 680 rpm -> 700 rpm is 0x0AA0 -> 0x0AF0 in each little-endian idle word: only the low bytes.
+    expect(changedOffsets(uploaded, image)).toEqual([0x124a6, 0x124aa]);
   });
 
   it("loads a PHP library tune through the server route", async () => {
@@ -221,5 +235,149 @@ describe("tune editor", () => {
     expect(
       await screen.findByText("Could not download VCAB0_02_0S.efu: Could not reach PHP's server."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("opening files safely", () => {
+  it("refuses a file type it cannot read, without reading it", async () => {
+    renderEditor();
+    const file = new File(["hello"], "notes.txt");
+    const read = vi.spyOn(file, "arrayBuffer");
+
+    dropFile(file);
+
+    expect(await screen.findByText("Choose a .hcf, .efu or .bin file.")).toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("refuses a file too large to be a tune, without reading it", async () => {
+    renderEditor();
+    const file = new File([new Uint8Array(2_000_000)], "big.hcf");
+    const read = vi.spyOn(file, "arrayBuffer");
+
+    dropFile(file);
+
+    expect(
+      await screen.findByText("big.hcf is too large to be a tune file (2,000,000 bytes)."),
+    ).toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("says when a file cannot be read, and then still opens another", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    const unreadable = new File([buildTde1Image().slice()], "tune.bin");
+    vi.spyOn(unreadable, "arrayBuffer").mockRejectedValue(
+      new DOMException("The file could not be read.", "NotReadableError"),
+    );
+
+    dropFile(unreadable);
+
+    expect(await screen.findByText("Could not read tune.bin.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/drop a file here/i)).toBeEnabled();
+    await user.upload(
+      screen.getByLabelText(/drop a file here/i),
+      new File([buildTde1Image().slice()], "good.bin"),
+    );
+    expect(await screen.findByText(/^Editing/)).toHaveTextContent("good.bin");
+  });
+});
+
+describe("saving", () => {
+  it("builds the .hcf before it opens the save dialog", async () => {
+    const user = userEvent.setup();
+    const order: string[] = [];
+    const encode = HcfCodec.prototype.encode;
+    vi.spyOn(HcfCodec.prototype, "encode").mockImplementation(function (
+      this: HcfCodec,
+      image: Uint8Array,
+    ) {
+      order.push("build");
+      return encode.call(this, image);
+    });
+    (window as SaveDialogWindow).showSaveFilePicker = vi.fn(async () => {
+      order.push("dialog");
+      return {
+        name: "out.hcf",
+        createWritable: async () => ({
+          write: async () => {},
+          close: async () => {},
+          abort: async () => {},
+        }),
+      };
+    });
+    renderEditor();
+    await openTune(user);
+    order.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Generate Tune" }));
+
+    await waitFor(() => expect(order).toEqual(["build", "dialog"]));
+  });
+});
+
+describe("unsaved changes", () => {
+  it("asks before another tune replaces the changes, and keeps them when told to", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+    await editWarmIdle(user, "700");
+
+    await user.upload(screen.getByLabelText(/drop a file here/i), hcfFile("other.hcf"));
+    const dialog = await screen.findByRole("alertdialog", { name: "Discard your changes?" });
+    expect(dialog).toHaveTextContent("Opening other.hcf replaces the tune you are editing.");
+    await user.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+
+    expect(screen.getByText(/^Editing/)).toHaveTextContent("tune.hcf");
+    expect(screen.getByRole("textbox", { name: "Warm idle (rpm)" })).toHaveValue("700");
+
+    await user.upload(screen.getByLabelText(/drop a file here/i), hcfFile("other.hcf"));
+    const again = await screen.findByRole("alertdialog", { name: "Discard your changes?" });
+    await user.click(within(again).getByRole("button", { name: "Discard changes" }));
+
+    expect(await screen.findByText(/^Editing/)).toHaveTextContent("other.hcf");
+    expect(screen.getByRole("textbox", { name: "Warm idle (rpm)" })).toHaveValue("680");
+  });
+
+  it("opens another tune without asking when nothing changed", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+
+    await user.upload(screen.getByLabelText(/drop a file here/i), hcfFile("other.hcf"));
+
+    await waitFor(() => expect(screen.getByText(/^Editing/)).toHaveTextContent("other.hcf"));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("asks before Reset all changes", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+    await editWarmIdle(user, "700");
+
+    await user.click(screen.getByRole("button", { name: "Reset all changes" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Discard your changes?" });
+    await user.click(within(dialog).getByRole("button", { name: "Discard changes" }));
+
+    expect(screen.getByRole("textbox", { name: "Warm idle (rpm)" })).toHaveValue("680");
+  });
+
+  it("asks before tire compensation replaces edited shift points", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+    const wot = curveInput("3→4 (overdrive)", "100%", "shift point");
+    await user.clear(wot);
+    await user.type(wot, "60");
+    await setTire(user, "Tires on the truck", "315", "75");
+
+    await user.click(screen.getByRole("button", { name: "Set shift points for these tires" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Discard your changes?" });
+    expect(dialog).toHaveTextContent("replaces the shift points you changed");
+    await user.click(within(dialog).getByRole("button", { name: "Discard changes" }));
+
+    // 38.0 mph x 31.73 / 34.60 = 34.8 mph, stored in 0.5 mph steps.
+    expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("35.0");
   });
 });

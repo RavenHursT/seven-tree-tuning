@@ -20,6 +20,21 @@ const DECODERS: Readonly<Record<ContainerFormat, (chipSerial: string) => Calibra
   bin: () => new BinCodec(),
 };
 
+/** Bigger than any tune file: the largest, a PHP library .efu, is 262,152 bytes. */
+const MAX_TUNE_FILE_BYTES = 1_048_576;
+
+/**
+ * Why a picked file cannot be a tune, from its name and size alone, or undefined when it can.
+ * Checked before the file is read, so a wrong or huge file is never loaded into memory.
+ */
+export function tuneFileProblem(fileName: string, sizeBytes: number): string | undefined {
+  if (!containerFormatFromFileName(fileName)) return "Choose a .hcf, .efu or .bin file.";
+  if (sizeBytes > MAX_TUNE_FILE_BYTES) {
+    return `${fileName} is too large to be a tune file (${sizeBytes.toLocaleString("en-US")} bytes).`;
+  }
+  return undefined;
+}
+
 /** True when opening the file needs the chip serial (only .hcf files are keyed to a chip). */
 export function needsChipSerial(fileName: string): boolean {
   return containerFormatFromFileName(fileName) === "hcf";

@@ -21,7 +21,7 @@ export function LibrarySection({ tunes, sourceUrl }: LibrarySectionProps) {
         tunes={tunes}
         selectedFileName={selected}
         loadingFileName={loading}
-        onSelect={(fileName) => void openLibraryTune(fileName)}
+        onSelect={openLibraryTune}
         sourceUrl={sourceUrl}
         disabled={state.loading !== null}
       />

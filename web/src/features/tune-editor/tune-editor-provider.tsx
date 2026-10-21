@@ -1,17 +1,22 @@
 "use client";
 
-import { createContext, use, useReducer, useTransition, type ReactNode } from "react";
+import { createContext, use, useReducer, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { chooseSaveTarget } from "@/lib/save-file";
 
+import { DiscardChangesDialog, type DiscardRequest } from "./components/discard-changes-dialog";
 import {
   editorReducer,
   initialEditorState,
   type EditorAction,
   type EditorState,
 } from "./state/editor-reducer";
-import { isValidChipSerial, selectGenerateDisabledReason } from "./state/editor-selectors";
+import {
+  isValidChipSerial,
+  selectChangeSummary,
+  selectGenerateDisabledReason,
+} from "./state/editor-selectors";
 import type { TuneSourceKind } from "./state/loaded-tune";
 import {
   buildTuneFile,
@@ -19,6 +24,7 @@ import {
   describeError,
   needsChipSerial,
   outputFileWithExtension,
+  tuneFileProblem,
 } from "./state/tune-files";
 
 /** Editor state plus the actions that need more than a reducer: file reads, fetches, saving. */
@@ -27,8 +33,12 @@ export interface TuneEditor {
   readonly dispatch: (action: EditorAction) => void;
   readonly generating: boolean;
   setChipSerial(value: string): void;
-  openFile(file: File): Promise<void>;
-  openLibraryTune(fileName: string): Promise<void>;
+  /** Opens a picked or dropped file; asks first when it would discard changes. */
+  openFile(file: File): void;
+  /** Opens a PHP library tune; asks first when it would discard changes. */
+  openLibraryTune(fileName: string): void;
+  resetAll(): void;
+  applyTireCompensation(): void;
   generate(): Promise<void>;
 }
 
@@ -37,6 +47,15 @@ const TuneEditorContext = createContext<TuneEditor | null>(null);
 export function TuneEditorProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(editorReducer, initialEditorState);
   const [generating, startGenerating] = useTransition();
+  const [discardRequest, setDiscardRequest] = useState<DiscardRequest | null>(null);
+
+  /** Runs `proceed` now, or after the person confirms when it would discard their changes. */
+  function confirmDiscard(message: string, proceed: () => void, { shiftPointsOnly = false } = {}) {
+    const { changedShiftPoints, idleChanged } = selectChangeSummary(state);
+    const loses = changedShiftPoints > 0 || (!shiftPointsOnly && idleChanged);
+    if (loses) setDiscardRequest({ message, proceed });
+    else proceed();
+  }
 
   function openBytes(bytes: Uint8Array, fileName: string, kind: TuneSourceKind, serial: string) {
     try {
@@ -55,9 +74,26 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function openFile(file: File) {
+  function openFile(file: File) {
+    const problem = tuneFileProblem(file.name, file.size);
+    if (problem) {
+      dispatch({ type: "loadFailed", message: problem });
+      return;
+    }
+    confirmDiscard(`Opening ${file.name} replaces the tune you are editing.`, () => {
+      void readAndOpen(file);
+    });
+  }
+
+  async function readAndOpen(file: File) {
     dispatch({ type: "loadStarted", kind: "upload", fileName: file.name });
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await file.arrayBuffer());
+    } catch {
+      dispatch({ type: "loadFailed", message: `Could not read ${file.name}.` });
+      return;
+    }
     if (needsChipSerial(file.name)) {
       // Kept until it opens, so a missing or wrong serial can be fixed without picking it again.
       dispatch({ type: "pendingFileHeld", file: { fileName: file.name, bytes } });
@@ -66,7 +102,13 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
     openBytes(bytes, file.name, "upload", state.chipSerial);
   }
 
-  async function openLibraryTune(fileName: string) {
+  function openLibraryTune(fileName: string) {
+    confirmDiscard(`Opening ${fileName} replaces the tune you are editing.`, () => {
+      void downloadAndOpen(fileName);
+    });
+  }
+
+  async function downloadAndOpen(fileName: string) {
     dispatch({ type: "loadStarted", kind: "library", fileName });
     let bytes: Uint8Array;
     try {
@@ -79,13 +121,30 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
     openBytes(bytes, fileName, "library", state.chipSerial);
   }
 
+  function resetAll() {
+    confirmDiscard("Reset all changes puts every value back to the starting tune.", () =>
+      dispatch({ type: "allReset" }),
+    );
+  }
+
+  function applyTireCompensation() {
+    confirmDiscard(
+      "Set shift points for these tires replaces the shift points you changed.",
+      () => dispatch({ type: "tireCompensationApplied" }),
+      { shiftPointsOnly: true },
+    );
+  }
+
   async function generate() {
     const { tune, values, chipSerial, outputFileName } = state;
     if (!tune || !values || selectGenerateDisabledReason(state)) return;
 
+    let bytes: Uint8Array;
     let target;
     try {
-      // First, while the click still counts as a user action: the save dialog needs one.
+      // Build first, so a failure cannot leave an empty file behind. It is synchronous, so the
+      // click still counts as a user action when the save dialog opens next.
+      bytes = buildTuneFile(tune, values, chipSerial);
       target = await chooseSaveTarget(outputFileWithExtension(outputFileName));
     } catch (error) {
       toast.error(describeError(error));
@@ -96,7 +155,7 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
     const saveTarget = target;
     startGenerating(async () => {
       try {
-        await saveTarget.write(buildTuneFile(tune, values, chipSerial));
+        await saveTarget.write(bytes);
         toast.success(`Saved ${saveTarget.fileName}`);
       } catch (error) {
         toast.error(describeError(error));
@@ -111,9 +170,16 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
     setChipSerial,
     openFile,
     openLibraryTune,
+    resetAll,
+    applyTireCompensation,
     generate,
   };
-  return <TuneEditorContext value={editor}>{children}</TuneEditorContext>;
+  return (
+    <TuneEditorContext value={editor}>
+      {children}
+      <DiscardChangesDialog request={discardRequest} onClose={() => setDiscardRequest(null)} />
+    </TuneEditorContext>
+  );
 }
 
 export function useTuneEditor(): TuneEditor {

@@ -12,7 +12,11 @@ interface SaveFilePickerOptions {
 interface WritableFile {
   write(data: Uint8Array): Promise<void>;
   close(): Promise<void>;
+  abort(reason?: unknown): Promise<void>;
 }
+
+/** How long a download link's file stays available. Firefox and Safari need more than 0 ms. */
+const LINK_FILE_LIFETIME_MS = 60_000;
 
 interface SaveFileHandle {
   readonly name: string;
@@ -52,7 +56,13 @@ export async function chooseSaveTarget(suggestedName: string): Promise<SaveTarge
     fileName: handle.name,
     write: async (bytes) => {
       const writable = await handle.createWritable();
-      await writable.write(bytes);
+      try {
+        await writable.write(bytes);
+      } catch (error) {
+        // Discards the partly written file instead of leaving it on disk.
+        await writable.abort(error);
+        throw error;
+      }
       await writable.close();
     },
   };
@@ -67,6 +77,5 @@ async function downloadThroughLink(bytes: Uint8Array, fileName: string): Promise
   document.body.append(link);
   link.click();
   link.remove();
-  // Revoke after the click has started the download.
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  setTimeout(() => URL.revokeObjectURL(url), LINK_FILE_LIFETIME_MS);
 }

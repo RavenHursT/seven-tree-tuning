@@ -4,14 +4,20 @@ import { chooseSaveTarget } from "./save-file";
 
 type PickerWindow = Window & { showSaveFilePicker?: unknown };
 
-function fakeHandle(name: string) {
-  const writable = { write: vi.fn(async () => {}), close: vi.fn(async () => {}) };
+function fakeHandle(name: string, write: (data: Uint8Array) => Promise<void> = async () => {}) {
+  const writable = {
+    write: vi.fn(write),
+    close: vi.fn(async () => {}),
+    abort: vi.fn(async () => {}),
+  };
   return { handle: { name, createWritable: vi.fn(async () => writable) }, writable };
 }
 
 afterEach(() => {
   delete (window as PickerWindow).showSaveFilePicker;
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("chooseSaveTarget with the File System Access save dialog", () => {
@@ -33,6 +39,20 @@ describe("chooseSaveTarget with the File System Access save dialog", () => {
     await target?.write(bytes);
     expect(writable.write).toHaveBeenCalledWith(bytes);
     expect(writable.close).toHaveBeenCalled();
+    expect(writable.abort).not.toHaveBeenCalled();
+  });
+
+  it("aborts the chosen file when writing fails, so no partial file is kept", async () => {
+    const { handle, writable } = fakeHandle("my-tune.hcf", async () => {
+      throw new DOMException("Disk full", "QuotaExceededError");
+    });
+    (window as PickerWindow).showSaveFilePicker = vi.fn(async () => handle);
+
+    const target = await chooseSaveTarget("a.hcf");
+
+    await expect(target?.write(new Uint8Array([1]))).rejects.toThrow("Disk full");
+    expect(writable.abort).toHaveBeenCalled();
+    expect(writable.close).not.toHaveBeenCalled();
   });
 
   it("returns null when the person cancels the dialog", async () => {
@@ -53,10 +73,12 @@ describe("chooseSaveTarget with the File System Access save dialog", () => {
 });
 
 describe("chooseSaveTarget without the save dialog", () => {
-  it("downloads through a temporary link with the suggested name", async () => {
+  it("downloads through a temporary link and frees the file a minute later", async () => {
+    vi.useFakeTimers();
     const createObjectURL = vi.fn(() => "blob:tune");
     const revokeObjectURL = vi.fn();
-    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL }));
+    // A subclass keeps the real URL global untouched.
+    vi.stubGlobal("URL", Object.assign(class extends URL {}, { createObjectURL, revokeObjectURL }));
     const clicked: { download: string; href: string }[] = [];
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
       this: HTMLAnchorElement,
@@ -71,6 +93,11 @@ describe("chooseSaveTarget without the save dialog", () => {
     expect(clicked).toEqual([{ download: "TDE1_TUNE-CUSTOM.hcf", href: "blob:tune" }]);
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     expect(document.querySelector("a[download]")).toBeNull();
-    await vi.waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith("blob:tune"));
+
+    // Firefox and Safari can cancel a download whose URL is freed straight away.
+    vi.advanceTimersByTime(59_000);
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1_000);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:tune");
   });
 });

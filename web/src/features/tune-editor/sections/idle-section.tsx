@@ -4,7 +4,7 @@ import { IdleRpmField } from "../components/idle-rpm-field";
 import { selectIdleView } from "../state/editor-selectors";
 import { useTuneEditor } from "../tune-editor-provider";
 
-/** Power Hungry's own idle tunes stay within 650 to 1,200 rpm; allow some room either side. */
+/** Power Hungry's library idles from 525 rpm (Whisper Mode) to 1,200 rpm (High Idle). */
 const IDLE_RPM_MIN = 500;
 const IDLE_RPM_MAX = 1500;
 

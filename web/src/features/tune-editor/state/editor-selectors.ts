@@ -14,38 +14,21 @@ import {
   type TireSize,
 } from "@seven-tree/hydra";
 
-import type { EditorState } from "./editor-reducer";
+import type { ShiftCurveRow } from "../components/shift-curve-table";
+import type { ShiftOverlapView } from "../components/shift-overlap-alert";
 
-/** One visible breakpoint of a shift curve, in the shape the curve editor shows. */
-export interface ShiftCurveRowView {
-  readonly breakpointIndex: number;
-  readonly throttleRaw: number;
-  readonly throttlePercent: number;
-  /** True for the second row of a repeated throttle value. */
-  readonly isStep: boolean;
-  readonly shiftPointMph: number;
-  readonly shiftPointRaw: number;
-  readonly speedoMph: number;
-  readonly originalShiftPointMph: number;
-  readonly changed: boolean;
-}
+import type { EditorState } from "./editor-reducer";
 
 export interface CurveTableView {
   readonly curveId: ShiftCurveId;
   readonly title: string;
   readonly kind: ShiftKind;
-  readonly rows: readonly ShiftCurveRowView[];
+  readonly rows: readonly ShiftCurveRow[];
 }
 
 export interface CurveTablesView {
   readonly upshifts: readonly CurveTableView[];
   readonly downshifts: readonly CurveTableView[];
-}
-
-export interface ShiftOverlapView {
-  readonly id: string;
-  readonly title: string;
-  readonly detail: string;
 }
 
 export interface ChangeSummary {

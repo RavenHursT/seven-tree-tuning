@@ -16,6 +16,7 @@ import {
   describeError,
   needsChipSerial,
   outputFileWithExtension,
+  tuneFileProblem,
 } from "./tune-files";
 
 const SERIAL = "0A1B2C3D";
@@ -103,5 +104,23 @@ describe("describeError", () => {
       "Something went wrong: x is undefined",
     );
     expect(describeError("boom")).toBe("Something went wrong.");
+  });
+});
+
+describe("tuneFileProblem", () => {
+  it("accepts the three tune file types up to a size no tune file reaches", () => {
+    expect(tuneFileProblem("tune.hcf", 229_384)).toBeUndefined();
+    expect(tuneFileProblem("VCAB0_02_0S.efu", 262_152)).toBeUndefined();
+    expect(tuneFileProblem("image.BIN", 262_144)).toBeUndefined();
+  });
+
+  it("refuses another file type before anything is read", () => {
+    expect(tuneFileProblem("movie.mp4", 10)).toBe("Choose a .hcf, .efu or .bin file.");
+  });
+
+  it("refuses a file too large to be a tune", () => {
+    expect(tuneFileProblem("big.hcf", 2_000_000)).toBe(
+      "big.hcf is too large to be a tune file (2,000,000 bytes).",
+    );
   });
 });

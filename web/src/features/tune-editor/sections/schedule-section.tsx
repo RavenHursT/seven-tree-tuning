@@ -57,7 +57,8 @@ export function ScheduleSection() {
       <p className="max-w-3xl text-sm text-muted-foreground">
         Shift point is the speed stored in the tune; the PCM computes it for the calibration tire
         size. Speedometer is the road speed on the tires entered, which a speedometer calibrated for
-        those tires shows. Editing either one updates the other.
+        those tires shows. If the speedometer was not recalibrated for the tires, the dash shows the
+        shift point instead. Editing either column updates the other.
       </p>
       <ShiftSchedule
         upshifts={upshifts.map(toTableProps)}

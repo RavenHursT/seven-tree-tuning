@@ -12,7 +12,7 @@ export function UploadSection() {
     <FileDropZone
       id="tune-file"
       accept=".hcf,.efu,.bin"
-      onFileSelected={(file) => void openFile(file)}
+      onFileSelected={openFile}
       disabled={state.loading !== null}
       selectedFileName={state.pendingFile?.fileName ?? uploadedName}
       description={
