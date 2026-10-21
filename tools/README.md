@@ -2,8 +2,11 @@
 
 Decrypts and re-encrypts Power Hungry Performance Hydra `.hcf` calibration files.
 
-`hcf.ts` is the tool. It compiles to a standalone native binary with Bun. `blowfish-boxes.ts`
-holds the standard Blowfish P-array and S-boxes.
+`hcf.ts` is the tool. It is a thin command-line wrapper around the shared `@seven-tree/hydra`
+library in [`packages/hydra`](../packages/hydra), which holds the Blowfish cipher
+(`src/crypto`, including `blowfish-boxes.ts` with the standard P-array and S-boxes) and the
+`.hcf` / `.efu` / `.bin` file formats (`src/container`). It compiles to a standalone native
+binary with Bun.
 
 ## Node / Bun tool
 
@@ -42,7 +45,8 @@ managed code is in `HydraFlashCS.dll`:
 - `HydraFlashCS.Blowfish` — textbook Blowfish: 16 rounds, big-endian block packing, F function
   `((S0[a] + S1[b]) ^ S2[c]) + S3[d]`, and the standard cyclic key schedule. The `pBase`/`sBase`
   constants are the standard hex-digits-of-pi boxes (verified: `P[0] = 0x243f6a88`,
-  `S[0][0] = 0xd1310ba6`); `blowfish-boxes.ts` is those constants extracted verbatim.
+  `S[0][0] = 0xd1310ba6`); `packages/hydra/src/crypto/blowfish-boxes.ts` is those constants
+  extracted verbatim.
 - `HydraFlashCS.Cryptography` — `GetKeyByUserId`, `GetKeyData`, `Decrypt`/`Encrypt`. `Decrypt`
   runs Blowfish-ECB in place (its `RemovePadding` result is discarded — dead code).
 - `Calibrations.GetCalibrationData` — the loader. For a `.hcf` it builds the key as
