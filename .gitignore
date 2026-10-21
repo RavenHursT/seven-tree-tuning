@@ -6,8 +6,12 @@
 /dist/
 
 # Node / Bun
-/node_modules/
+node_modules/
 
 # Python
 __pycache__/
 *.pyc
+
+# Claude Code worktrees and machine-local settings
+/.claude/worktrees/
+/.claude/settings.local.json

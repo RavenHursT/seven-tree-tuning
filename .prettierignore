@@ -1,0 +1,12 @@
+*.md
+assets/
+decrypted/
+dist/
+docs/
+raw/
+tunes/
+package-lock.json
+web/.next/
+web/next-env.d.ts
+web/playwright-report/
+web/test-results/
