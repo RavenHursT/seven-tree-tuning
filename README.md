@@ -14,6 +14,9 @@ Tune files and file-format notes for a 1996 Ford F-350 7.3L Power Stroke Diesel 
 
 > **[Full tune reference → `docs/tunes.md`](docs/tunes.md)** — every tune in `tunes/`, what it is for,
 > and its complete up- and down-shift schedule.
+>
+> **[Web tune editor → `web/`](#web-tune-editor)** — load a tune, edit its shift points and idle speed,
+> and save a new `.hcf`.
 
 ## Vehicle
 
@@ -45,6 +48,8 @@ feel and lockup behaviour, and the larger tires shift the vehicle-speed and shif
 | `tunes/*-TIRECOMP-UPDOWN.hcf` | 5 tunes derived from the `REVD-DOWNSHIFTCHG` bases, with every **upshift and downshift** speed scaled for 34" tires — the ones to flash on the 34" tires. |
 | `docs/tunes.md` | Per-tune reference: purpose, variants, and the full up/down shift schedule of every tune. |
 | `tools/` | Decryptor/encryptor, the tire-compensation script, and format notes. |
+| `web/` | The web tune editor (Next.js). See [Web tune editor](#web-tune-editor). |
+| `packages/hydra/` | `@seven-tree/hydra`: the `.hcf` / `.efu` codecs, the TDE1 shift curves and idle, and the tire math. `tools/` and `web/` both use it. |
 
 The base files are unmodified byte-for-byte copies, verified by SHA-256. Each `-TIRECOMP-UPDOWN` file
 differs from its base by exactly 60 bytes: 30 upshift-speed bytes and 30 downshift-speed bytes. Full
@@ -214,6 +219,89 @@ up to 4 mph at the 3→4 / 4→3 pair — and the transmission hunted between 3r
 That set was removed on 2026-10-21; it is in git history at
 [`bdab89b`](https://github.com/RavenHursT/seven-tree-tuning/commit/bdab89b953e54db0a995a5d3fce2ccd8ebe6ad7c).
 See [`docs/tunes.md`](docs/tunes.md) for the before/after numbers.
+
+## Web tune editor
+
+`web/` is a Next.js app that edits the shift schedule and the warm idle of a TDE1 tune, then saves a
+new `.hcf` for the chip.
+
+### Run it
+
+```
+nvm use              # Node 24, from .nvmrc
+npm install
+npm run dev          # http://localhost:3000
+```
+
+For a production build, run `npm run build:web`, then `npm start`.
+
+### Use it
+
+1. Enter the chip serial: the first 8 characters of the chip's USB serial. HydraFlash shows it in
+   its status bar.
+2. Load a starting tune. Upload a `.hcf`, a PHP library `.efu` or a decrypted `.bin`, or pick one of
+   the 35 TDE1 tunes in Power Hungry's public library.
+3. Enter the tires on the truck. The default is the factory size, LT235/85R16.
+4. Edit any shift point or speedometer value. Each one updates the other as you type.
+5. Edit the warm idle.
+6. Click **Generate Tune** and save the `.hcf`. Load it into a chip position with HydraFlash.
+
+A `.hcf` picked before the serial is entered stays loaded and opens when the serial is valid. A wrong
+serial shows "The chip serial does not match this file."
+
+### What the numbers mean
+
+- **Shift point:** the speed stored in the tune, in 0.5 mph steps. The PCM computes speed for the
+  calibration tire size. Set that size under **Speedometer calibration**; the default is LT235/85R16.
+- **Speedometer:** the road speed on the fitted tires. It equals the shift point × fitted diameter ÷
+  calibration diameter. A speedometer calibrated for the fitted tires shows this value.
+- **Set shift points for these tires:** replaces every shift point with the starting tune's value ×
+  calibration diameter ÷ fitted diameter. With LT265/75R16 as the calibration size and 315/75R16
+  fitted, the five `REVD-DOWNSHIFTCHG` tunes become the shipped `-TIRECOMP-UPDOWN` tunes, byte for
+  byte. With the default LT235/85R16, 12 to 18 shift points per tune land 0.5 mph higher.
+- **Possible gear hunting:** a throttle range where a downshift speed is at or above its matching
+  upshift. The six curves and the check are described in [Shift schedule](#shift-schedule).
+- **Warm idle:** the rpm of the first two points of the idle curve, stored as rpm × 4 at `0x124a6` and
+  `0x124aa`. The editor shows the other idle-curve points and does not change them.
+
+The editor changes only those 60 shift-speed bytes and 4 idle bytes. It refuses to write any other
+byte.
+
+### Privacy
+
+- Decryption and encryption run in the browser. The chip serial never goes to the server.
+- The server fetches only files named in Power Hungry's library index, through
+  `/api/library/<file>`. The browser cannot fetch them directly, because PHP's site sends no CORS
+  headers.
+
+### Tests
+
+```
+npm test                                   # unit and component tests (Vitest)
+HYDRA_CHIP_SERIAL=<serial8> npm test       # also checks every tune in tunes/
+npm run test:e2e                           # Playwright, against a production build
+```
+
+With `HYDRA_CHIP_SERIAL` set, the tests decode every tune in `tunes/` and check that:
+
+- each schedule matches `docs/tunes.md`, and no tune has a gear-hunting overlap;
+- decode then encode gives the same file, byte for byte;
+- the tire compensation rebuilds each `-TIRECOMP-UPDOWN` tune byte for byte.
+
+`HYDRA_EFU_DIR=<folder>` adds the same decode check for a folder of PHP library `.efu` files. Do not
+commit the serial, decrypted images or PHP's files.
+
+### Code layout
+
+| Path | Contents |
+|---|---|
+| `packages/hydra/src/container`, `crypto` | Blowfish, `HcfCodec`, `EfuDecoder`, `BinCodec` |
+| `packages/hydra/src/calibration` | TDE1 curve and idle offsets, edits, tire math, gear-hunting check |
+| `packages/hydra/src/library` | Power Hungry's library index and tune names |
+| `web/src/features/tune-editor/components` | Components that take props only |
+| `web/src/features/tune-editor/sections` | Components that connect the editor state to them |
+| `web/src/features/tune-editor/state` | Reducer, selectors, file decode and build |
+| `web/src/features/library`, `web/src/app/api/library` | Server-only access to PHP's library |
 
 ## Chip positions
 
