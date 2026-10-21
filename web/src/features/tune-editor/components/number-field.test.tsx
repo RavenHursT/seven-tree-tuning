@@ -250,6 +250,169 @@ describe("NumberField validation", () => {
   });
 });
 
+describe("NumberField invalid text message", () => {
+  function getGroup(): HTMLElement {
+    return getField().closest("[data-slot=input-group]") as HTMLElement;
+  }
+
+  it.each([
+    ["both limits", { min: 500, max: 1500 }, "Enter a number from 500 to 1,500."],
+    ["only a minimum", { min: 0 }, "Enter a number of at least 0."],
+    ["only a maximum", { max: 127.5 }, "Enter a number of at most 127.5."],
+    ["no limits", {}, "Enter a number."],
+  ])("shows the default text for %s and links it to the field", async (_case, limits, expected) => {
+    const user = userEvent.setup();
+    render(<Harness initial={680} {...limits} />);
+    await user.clear(getField());
+
+    await user.paste("abc");
+
+    expect(screen.getByText(expected)).toBeVisible();
+    expect(getField()).toHaveAccessibleDescription(expected);
+  });
+
+  it("formats the limits with thousands separators and keeps their decimals", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={1} min={0.25} max={12345.5} />);
+    await user.clear(getField());
+
+    await user.paste("abc");
+
+    expect(screen.getByText("Enter a number from 0.25 to 12,345.5.")).toBeVisible();
+  });
+
+  it("puts the message under the input group, outside of it", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={10} min={0} max={127.5} />);
+    await user.clear(getField());
+
+    await user.paste("abc");
+
+    const message = screen.getByText("Enter a number from 0 to 127.5.");
+    expect(getGroup()).not.toContainElement(message);
+    expect(getGroup().compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it.each([
+    ["is not a number", "abc"],
+    ["is empty", ""],
+    ["is above the maximum", "127.6"],
+    ["is below the minimum", "-0.5"],
+  ])("is shown when the typed text %s", async (_case, text) => {
+    const user = userEvent.setup();
+    render(<Harness initial={10} min={0} max={127.5} />);
+    await user.clear(getField());
+
+    if (text) await user.paste(text);
+
+    expect(screen.getByText("Enter a number from 0 to 127.5.")).toBeVisible();
+    expect(getField()).toBeInvalid();
+  });
+
+  it("is not shown before anything is typed", () => {
+    render(<Harness initial={10} min={0} max={127.5} />);
+
+    expect(screen.queryByText(/^Enter a number/)).not.toBeInTheDocument();
+    expect(getField()).not.toHaveAccessibleDescription();
+  });
+
+  it("is hidden when the typed text is valid, also when it is the edge of the range", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={10} min={0} max={127.5} />);
+    await user.clear(getField());
+    await user.paste("abc");
+    expect(screen.getByText(/^Enter a number/)).toBeVisible();
+
+    await user.clear(getField());
+    await user.paste("127.5");
+
+    expect(screen.queryByText(/^Enter a number/)).not.toBeInTheDocument();
+    expect(getField()).not.toHaveAccessibleDescription();
+  });
+
+  it("is hidden when the field is not focused", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={10} min={0} max={127.5} />);
+    await user.clear(getField());
+    await user.paste("abc");
+    expect(screen.getByText(/^Enter a number/)).toBeVisible();
+
+    await user.tab();
+
+    expect(screen.queryByText(/^Enter a number/)).not.toBeInTheDocument();
+    expect(getField()).not.toHaveAccessibleDescription();
+  });
+
+  it("is hidden after Enter and after Escape", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={10} min={0} max={127.5} />);
+    await user.clear(getField());
+    await user.paste("abc");
+
+    await user.keyboard("{Enter}");
+    expect(screen.queryByText(/^Enter a number/)).not.toBeInTheDocument();
+
+    await user.clear(getField());
+    await user.paste("abc");
+    expect(screen.getByText(/^Enter a number/)).toBeVisible();
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByText(/^Enter a number/)).not.toBeInTheDocument();
+  });
+
+  it("uses invalidMessage instead of the default text when it is given", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness initial={680} min={500} max={1500} invalidMessage="Idle must be 500 to 1,500." />,
+    );
+    await user.clear(getField());
+
+    await user.paste("2500");
+
+    expect(screen.getByText("Idle must be 500 to 1,500.")).toBeVisible();
+    expect(screen.queryByText(/^Enter a number/)).not.toBeInTheDocument();
+    expect(getField()).toHaveAccessibleDescription("Idle must be 500 to 1,500.");
+  });
+
+  it("does not pass invalidMessage on to the input element", () => {
+    render(<Harness initial={10} invalidMessage="Nope." />);
+
+    expect(getField().getAttributeNames()).not.toContain("invalidmessage");
+  });
+
+  it("keeps the aria-describedby the caller passes and adds the message after it", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <p id="original">Was 38.0</p>
+        <Harness initial={38} min={0} max={127.5} aria-describedby="original" />
+      </>,
+    );
+    expect(getField()).toHaveAccessibleDescription("Was 38.0");
+    await user.clear(getField());
+
+    await user.paste("abc");
+
+    expect(getField()).toHaveAccessibleDescription("Was 38.0 Enter a number from 0 to 127.5.");
+    const ids = getField().getAttribute("aria-describedby")?.split(" ");
+    expect(ids).toHaveLength(2);
+    expect(ids?.[0]).toBe("original");
+
+    await user.tab();
+
+    expect(getField().getAttribute("aria-describedby")).toBe("original");
+  });
+
+  it("does not show the message for the invalid prop alone", () => {
+    render(<Harness initial={10} min={0} max={127.5} invalid />);
+
+    expect(getField()).toBeInvalid();
+    expect(screen.queryByText(/^Enter a number/)).not.toBeInTheDocument();
+  });
+});
+
 describe("NumberField keyboard", () => {
   it("shows the formatted value from props again when Escape is pressed", async () => {
     const user = userEvent.setup();
@@ -261,6 +424,149 @@ describe("NumberField keyboard", () => {
 
     expect(getField()).toHaveValue("38.0");
     expect(getField()).toBeValid();
+  });
+
+  it("puts back the value the field had when it got focus when Escape is pressed", async () => {
+    const user = userEvent.setup();
+    const onCommit = vi.fn();
+    render(<Harness initial={38} format={oneDecimal} onCommit={onCommit} />);
+    await user.clear(getField());
+    await user.type(getField(), "41");
+    expect(onCommit.mock.calls).toEqual([[4], [41]]);
+
+    await user.keyboard("{Escape}");
+
+    expect(onCommit).toHaveBeenLastCalledWith(38);
+    expect(getField()).toHaveValue("38.0");
+    expect(getField()).toHaveFocus();
+  });
+
+  it("puts back the value from focus after the arrow keys changed it", async () => {
+    const user = userEvent.setup();
+    const onCommit = vi.fn();
+    render(<Harness initial={38} step={0.5} format={oneDecimal} onCommit={onCommit} />);
+    await user.click(getField());
+    await user.keyboard("{ArrowUp}{ArrowUp}");
+    expect(getField()).toHaveValue("39");
+
+    await user.keyboard("{Escape}");
+
+    expect(onCommit).toHaveBeenLastCalledWith(38);
+    expect(getField()).toHaveValue("38.0");
+    expect(getField()).toHaveFocus();
+  });
+
+  it("puts back the focus value when the caller changed the number the user typed", async () => {
+    const user = userEvent.setup();
+    const onCommit = vi.fn();
+    render(<Harness initial={38} quantize={toHalf} format={oneDecimal} onCommit={onCommit} />);
+    await user.clear(getField());
+    await user.type(getField(), "41.3");
+    await user.keyboard("{Enter}");
+    expect(getField()).toHaveValue("41.5");
+
+    await user.keyboard("{Escape}");
+
+    expect(onCommit).toHaveBeenLastCalledWith(38);
+    expect(getField()).toHaveValue("38.0");
+  });
+
+  it("puts back the focus value when the typed text is not valid", async () => {
+    const user = userEvent.setup();
+    const onCommit = vi.fn();
+    render(<Harness initial={38} format={oneDecimal} onCommit={onCommit} />);
+    await user.clear(getField());
+    await user.type(getField(), "41");
+    await user.keyboard("x");
+    expect(getField()).toBeInvalid();
+
+    await user.keyboard("{Escape}");
+
+    expect(onCommit).toHaveBeenLastCalledWith(38);
+    expect(getField()).toHaveValue("38.0");
+    expect(getField()).toBeValid();
+  });
+
+  it("does not report a value when Escape is pressed and nothing was committed since focus", async () => {
+    const user = userEvent.setup();
+    const onCommit = vi.fn();
+    render(<Harness initial={38} format={oneDecimal} onCommit={onCommit} />);
+    await user.click(getField());
+
+    await user.keyboard("{Escape}");
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(getField()).toHaveValue("38.0");
+  });
+
+  it("puts back the focus value even when the caller keeps passing the old value", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    render(
+      <NumberField
+        aria-label="Shift point"
+        value={38}
+        onValueChange={onValueChange}
+        format={oneDecimal}
+        step={0.5}
+      />,
+    );
+    await user.clear(getField());
+    await user.type(getField(), "41");
+    expect(onValueChange.mock.calls).toEqual([[4], [41]]);
+
+    await user.keyboard("{Escape}");
+
+    expect(onValueChange).toHaveBeenLastCalledWith(38);
+    expect(onValueChange).toHaveBeenCalledTimes(3);
+    expect(getField()).toHaveValue("38.0");
+
+    await user.keyboard("{ArrowUp}");
+    expect(onValueChange).toHaveBeenLastCalledWith(38.5);
+    await user.keyboard("{Escape}");
+
+    expect(onValueChange).toHaveBeenLastCalledWith(38);
+    expect(onValueChange).toHaveBeenCalledTimes(5);
+  });
+
+  it("does not report a value on a second Escape", async () => {
+    const user = userEvent.setup();
+    const onCommit = vi.fn();
+    render(<Harness initial={38} format={oneDecimal} onCommit={onCommit} />);
+    await user.clear(getField());
+    await user.type(getField(), "41");
+
+    await user.keyboard("{Escape}{Escape}");
+
+    expect(onCommit.mock.calls).toEqual([[4], [41], [38]]);
+  });
+
+  it("goes back to the value from the latest focus, not from the first one", async () => {
+    const user = userEvent.setup();
+    const onCommit = vi.fn();
+    render(<Harness initial={38} format={oneDecimal} onCommit={onCommit} />);
+    await user.clear(getField());
+    await user.type(getField(), "41");
+    await user.tab();
+    expect(getField()).toHaveValue("41.0");
+    await user.click(getField());
+    await user.clear(getField());
+    await user.type(getField(), "45");
+
+    await user.keyboard("{Escape}");
+
+    expect(onCommit).toHaveBeenLastCalledWith(41);
+    expect(getField()).toHaveValue("41.0");
+  });
+
+  it("calls the onFocus handler it is given", async () => {
+    const user = userEvent.setup();
+    const onFocus = vi.fn();
+    render(<Harness initial={38} onFocus={onFocus} />);
+
+    await user.click(getField());
+
+    expect(onFocus).toHaveBeenCalledOnce();
   });
 
   it("shows the formatted value from props again when Enter is pressed", async () => {

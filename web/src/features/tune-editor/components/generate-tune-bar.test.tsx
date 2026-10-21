@@ -109,15 +109,34 @@ describe("GenerateTuneBar", () => {
       expect(onGenerate).toHaveBeenCalledTimes(1);
     });
 
-    it("is disabled when a reason is given, and shows that reason next to it", async () => {
+    it("is aria-disabled and still focusable when a reason is given, and shows that reason next to it", async () => {
       const user = userEvent.setup();
       const { onGenerate } = renderBar({ disabledReason: "Enter the chip serial first." });
       const button = screen.getByRole("button", { name: "Generate Tune" });
 
       await user.click(button);
 
-      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(button).not.toBeDisabled();
+      expect(button).toHaveFocus();
       expect(screen.getByText("Enter the chip serial first.")).toBeInTheDocument();
+      expect(onGenerate).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when it is activated from the keyboard while aria-disabled", async () => {
+      const user = userEvent.setup();
+      const { onGenerate } = renderBar({
+        disabledReason: "Enter the chip serial first.",
+        onResetAll: undefined,
+      });
+      const button = screen.getByRole("button", { name: "Generate Tune" });
+
+      await user.tab();
+      await user.tab();
+      expect(button).toHaveFocus();
+      await user.keyboard("{Enter}");
+      await user.keyboard(" ");
+
       expect(onGenerate).not.toHaveBeenCalled();
     });
 
@@ -134,6 +153,7 @@ describe("GenerateTuneBar", () => {
 
       const button = screen.getByRole("button", { name: "Generate Tune" });
       expect(button).toBeEnabled();
+      expect(button).not.toHaveAttribute("aria-disabled");
       expect(button).not.toHaveAccessibleDescription();
     });
 
@@ -144,11 +164,44 @@ describe("GenerateTuneBar", () => {
 
       await user.click(button);
 
-      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(button).not.toBeDisabled();
       expect(button).toHaveAttribute("aria-busy", "true");
       expect(button.querySelector('[data-slot="spinner"]')).not.toBeNull();
       expect(screen.queryByRole("button", { name: "Generate Tune" })).not.toBeInTheDocument();
       expect(onGenerate).not.toHaveBeenCalled();
+    });
+
+    it("keeps focus when a press starts generating", async () => {
+      const user = userEvent.setup();
+      function GeneratingHarness() {
+        const [generating, setGenerating] = React.useState(false);
+        return (
+          <GenerateTuneBar
+            fileName="my-tune"
+            onFileNameChange={vi.fn()}
+            changedShiftPoints={0}
+            idleChanged={false}
+            generating={generating}
+            onGenerate={() => setGenerating(true)}
+          />
+        );
+      }
+      render(<GeneratingHarness />);
+      const button = screen.getByRole("button", { name: "Generate Tune" });
+      await user.click(button);
+
+      expect(screen.getByRole("button", { name: "Generating…" })).toBe(button);
+      expect(button).toHaveFocus();
+      expect(button).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("keeps the reason linked while it is also generating", () => {
+      renderBar({ generating: true, disabledReason: "Enter the chip serial first." });
+
+      expect(screen.getByRole("button", { name: "Generating…" })).toHaveAccessibleDescription(
+        "Enter the chip serial first.",
+      );
     });
 
     it("shows no spinner when not generating", () => {
@@ -162,22 +215,34 @@ describe("GenerateTuneBar", () => {
     it("is shown and reports a click when something changed and a handler is given", async () => {
       const user = userEvent.setup();
       const { onResetAll } = renderBar({ changedShiftPoints: 2 });
+      const button = screen.getByRole("button", { name: "Reset all changes" });
 
-      await user.click(screen.getByRole("button", { name: "Reset all changes" }));
+      await user.click(button);
 
+      expect(button).not.toHaveAttribute("aria-disabled");
       expect(onResetAll).toHaveBeenCalledTimes(1);
     });
 
-    it("is shown when only the idle changed", () => {
+    it("is available when only the idle changed", () => {
       renderBar({ idleChanged: true });
 
-      expect(screen.getByRole("button", { name: "Reset all changes" })).toBeInTheDocument();
+      const button = screen.getByRole("button", { name: "Reset all changes" });
+
+      expect(button).not.toHaveAttribute("aria-disabled");
     });
 
-    it("is hidden when nothing changed", () => {
-      renderBar();
+    it("is shown but aria-disabled when nothing changed, and does nothing when pressed", async () => {
+      const user = userEvent.setup();
+      const { onResetAll } = renderBar();
+      const button = screen.getByRole("button", { name: "Reset all changes" });
 
-      expect(screen.queryByRole("button", { name: "Reset all changes" })).not.toBeInTheDocument();
+      await user.click(button);
+      await user.keyboard("{Enter}");
+
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(button).not.toBeDisabled();
+      expect(button).toHaveFocus();
+      expect(onResetAll).not.toHaveBeenCalled();
     });
 
     it("is hidden when no handler is given", () => {
@@ -186,10 +251,51 @@ describe("GenerateTuneBar", () => {
       expect(screen.queryByRole("button", { name: "Reset all changes" })).not.toBeInTheDocument();
     });
 
-    it("is disabled while generating", () => {
-      renderBar({ changedShiftPoints: 2, generating: true });
+    it("is hidden when no handler is given and nothing changed", () => {
+      renderBar({ onResetAll: undefined });
 
-      expect(screen.getByRole("button", { name: "Reset all changes" })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Reset all changes" })).not.toBeInTheDocument();
+    });
+
+    it("is aria-disabled while generating, and does nothing when pressed", async () => {
+      const user = userEvent.setup();
+      const { onResetAll } = renderBar({ changedShiftPoints: 2, generating: true });
+      const button = screen.getByRole("button", { name: "Reset all changes" });
+
+      await user.click(button);
+
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(button).not.toBeDisabled();
+      expect(onResetAll).not.toHaveBeenCalled();
+    });
+
+    it("keeps focus after a reset removes the last change", async () => {
+      const user = userEvent.setup();
+      function ResetHarness() {
+        const [changed, setChanged] = React.useState(3);
+        return (
+          <GenerateTuneBar
+            fileName="my-tune"
+            onFileNameChange={vi.fn()}
+            changedShiftPoints={changed}
+            idleChanged={false}
+            onGenerate={vi.fn()}
+            onResetAll={() => setChanged(0)}
+          />
+        );
+      }
+      render(<ResetHarness />);
+      const button = screen.getByRole("button", { name: "Reset all changes" });
+      await user.tab();
+      await user.tab();
+      expect(button).toHaveFocus();
+
+      await user.keyboard("{Enter}");
+
+      expect(screen.getByRole("button", { name: "Reset all changes" })).toBe(button);
+      expect(button).toHaveFocus();
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByText("No changes")).toBeInTheDocument();
     });
   });
 });

@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ShiftCurveTableProps } from "./shift-curve-table";
@@ -54,7 +55,9 @@ describe("ShiftSchedule", () => {
 
     const section = screen.getByRole("region", { name: "Upshifts" });
 
-    expect(within(section).getByRole("heading", { name: "Upshifts" })).toBeInTheDocument();
+    expect(
+      within(section).getByRole("heading", { level: 2, name: "Upshifts" }),
+    ).toBeInTheDocument();
     expect(tableNames(section)).toEqual(["1→2", "2→3", "3→4 (overdrive)"]);
   });
 
@@ -63,7 +66,9 @@ describe("ShiftSchedule", () => {
 
     const section = screen.getByRole("region", { name: "Downshifts" });
 
-    expect(within(section).getByRole("heading", { name: "Downshifts" })).toBeInTheDocument();
+    expect(
+      within(section).getByRole("heading", { level: 2, name: "Downshifts" }),
+    ).toBeInTheDocument();
     expect(tableNames(section)).toEqual(["2→1", "3→2", "4→3 (out of overdrive)"]);
   });
 
@@ -81,6 +86,64 @@ describe("ShiftSchedule", () => {
     expect(
       within(downshift).getByRole("textbox", { name: "2→1, 100% throttle, shift point (mph)" }),
     ).toHaveValue("27.0");
+  });
+
+  it("keeps Upshifts and Downshifts as level 2 headings and shows each curve title as a level 3 heading", () => {
+    render(<ShiftSchedule upshifts={upshifts} downshifts={downshifts} />);
+
+    const levelTwo = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+    const upshiftTitles = within(screen.getByRole("region", { name: "Upshifts" }))
+      .getAllByRole("heading", { level: 3 })
+      .map((heading) => heading.textContent);
+    const downshiftTitles = within(screen.getByRole("region", { name: "Downshifts" }))
+      .getAllByRole("heading", { level: 3 })
+      .map((heading) => heading.textContent);
+
+    expect(levelTwo).toEqual(["Upshifts", "Downshifts"]);
+    expect(upshiftTitles).toEqual(["1→2", "2→3", "3→4 (overdrive)"]);
+    expect(downshiftTitles).toEqual(["2→1", "3→2", "4→3 (out of overdrive)"]);
+  });
+
+  it("gives each of the six reset buttons its own name", () => {
+    const withReset = (curve: ShiftCurveTableProps): ShiftCurveTableProps => ({
+      ...curve,
+      onReset: vi.fn(),
+    });
+    render(
+      <ShiftSchedule upshifts={upshifts.map(withReset)} downshifts={downshifts.map(withReset)} />,
+    );
+
+    const names = screen.getAllByRole("button").map((button) => button.getAttribute("aria-label"));
+
+    expect(names).toEqual([
+      "Reset 1→2",
+      "Reset 2→3",
+      "Reset 3→4 (overdrive)",
+      "Reset 2→1",
+      "Reset 3→2",
+      "Reset 4→3 (out of overdrive)",
+    ]);
+    expect(new Set(names).size).toBe(6);
+  });
+
+  it("passes speedometerStep on to its curve", async () => {
+    const user = userEvent.setup();
+    const onSpeedoChange = vi.fn();
+    render(
+      <ShiftSchedule
+        upshifts={[{ ...upshifts[0], speedometerStep: 0.5, onSpeedoChange }]}
+        downshifts={[]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("textbox", { name: "1→2, 100% throttle, speedometer (mph)" }),
+    );
+    await user.keyboard("{ArrowUp}");
+
+    expect(onSpeedoChange).toHaveBeenCalledExactlyOnceWith(0, 27.5);
   });
 
   it("puts the overlaps above both sections", () => {

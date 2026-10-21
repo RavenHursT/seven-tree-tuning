@@ -13,8 +13,8 @@ export function TuneSourcePanel({ upload, library, defaultTab = "upload" }: Tune
   return (
     <Card>
       <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          Starting tune
+        <CardTitle>
+          <h2>Starting tune</h2>
         </CardTitle>
       </CardHeader>
       <CardContent>

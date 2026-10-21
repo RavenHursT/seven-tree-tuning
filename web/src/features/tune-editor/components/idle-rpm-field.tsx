@@ -89,7 +89,9 @@ export function IdleRpmField({
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle>Idle</CardTitle>
+        <CardTitle>
+          <h2>Idle</h2>
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">

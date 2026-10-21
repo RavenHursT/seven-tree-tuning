@@ -125,24 +125,25 @@ describe("selectOverlapViews", () => {
     expect(selectOverlapViews(loadedState())).toEqual([]);
   });
 
-  it("describes each throttle range where a downshift is at or above its upshift", () => {
+  it("describes each throttle range where a downshift is above its upshift", () => {
     const views = selectOverlapViews(withUpshiftsOnlyScaled(loadedState(), 0.9147));
     expect(views).toHaveLength(3);
     expect(views).toEqual(
       expect.arrayContaining([
         {
           id: "up-2-3:0-50",
-          title: "3→2 downshift at or above 2→3 upshift",
+          title: "3→2 downshift above 2→3 upshift",
           detail: "Throttle 0–20%: the downshift is up to 1.0 mph above the upshift.",
         },
         {
-          id: "up-3-4:0-81",
-          title: "4→3 downshift at or above 3→4 upshift",
-          detail: "Throttle 0–32%: the downshift is up to 1.0 mph above the upshift.",
+          // Throttle 81 has equal speeds, which is not hunting, so the range ends at 80.
+          id: "up-3-4:0-80",
+          title: "4→3 downshift above 3→4 upshift",
+          detail: "Throttle 0–31%: the downshift is up to 1.0 mph above the upshift.",
         },
         {
           id: "up-3-4:192-255",
-          title: "4→3 downshift at or above 3→4 upshift",
+          title: "4→3 downshift above 3→4 upshift",
           detail: "Throttle 75–100%: the downshift is up to 4.0 mph above the upshift.",
         },
       ]),

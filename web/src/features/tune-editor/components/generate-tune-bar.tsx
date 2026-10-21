@@ -24,6 +24,13 @@ export interface GenerateTuneBarProps {
   onResetAll?(): void;
 }
 
+/**
+ * Buttons that cannot be used right now use aria-disabled, not the disabled attribute: they stay
+ * in the tab order and keep focus when they become unusable, and their reason can be read.
+ * Their click handlers do nothing while unavailable.
+ */
+const UNAVAILABLE_CLASS = "aria-disabled:pointer-events-none aria-disabled:opacity-50";
+
 function summarizeChanges(changedShiftPoints: number, idleChanged: boolean): string {
   const parts: string[] = [];
   if (changedShiftPoints > 0) {
@@ -100,23 +107,37 @@ interface GenerateButtonProps {
 }
 
 function GenerateButton({ generating, disabledReason, reasonId, onGenerate }: GenerateButtonProps) {
+  const unavailable = generating || Boolean(disabledReason);
+
   return (
     <Button
       type="button"
       size="lg"
-      disabled={generating || Boolean(disabledReason)}
+      aria-disabled={unavailable || undefined}
       aria-busy={generating || undefined}
       aria-describedby={disabledReason ? reasonId : undefined}
-      onClick={onGenerate}
+      className={UNAVAILABLE_CLASS}
+      onClick={() => {
+        if (!unavailable) onGenerate();
+      }}
     >
       {generating ? <GeneratingLabel /> : <GenerateLabel />}
     </Button>
   );
 }
 
-function ResetButton({ disabled, onClick }: { disabled: boolean; onClick(): void }) {
+function ResetButton({ unavailable, onClick }: { unavailable: boolean; onClick(): void }) {
   return (
-    <Button type="button" variant="outline" size="lg" disabled={disabled} onClick={onClick}>
+    <Button
+      type="button"
+      variant="outline"
+      size="lg"
+      aria-disabled={unavailable || undefined}
+      className={UNAVAILABLE_CLASS}
+      onClick={() => {
+        if (!unavailable) onClick();
+      }}
+    >
       <ArrowCounterClockwiseIcon data-icon="inline-start" aria-hidden="true" />
       Reset all changes
     </Button>
@@ -134,7 +155,7 @@ export function GenerateTuneBar({
   onResetAll,
 }: GenerateTuneBarProps) {
   const reasonId = React.useId();
-  const showReset = Boolean(onResetAll) && (changedShiftPoints > 0 || idleChanged);
+  const nothingChanged = changedShiftPoints === 0 && !idleChanged;
 
   return (
     <div
@@ -147,7 +168,9 @@ export function GenerateTuneBar({
           {summarizeChanges(changedShiftPoints, idleChanged)}
         </p>
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
-          {showReset ? <ResetButton disabled={generating} onClick={() => onResetAll?.()} /> : null}
+          {onResetAll ? (
+            <ResetButton unavailable={generating || nothingChanged} onClick={onResetAll} />
+          ) : null}
           <GenerateButton
             generating={generating}
             disabledReason={disabledReason}

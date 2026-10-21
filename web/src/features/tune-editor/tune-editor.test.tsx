@@ -145,7 +145,20 @@ describe("tune editor", () => {
     expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("36.5");
   });
 
-  it("warns when a downshift reaches its upshift", async () => {
+  it("moves the speedometer value one stored step per arrow key", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+    await setTire(user, "Tires on the truck", "315", "75");
+
+    await user.click(curveInput("3→4 (overdrive)", "0%", "speedometer"));
+    await user.keyboard("{ArrowUp}");
+
+    // One stored step is 0.5 mph in the tune, 0.55 mph on the speedometer with 315/75R16 tires.
+    expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("38.5");
+  });
+
+  it("warns when a downshift is above its upshift", async () => {
     const user = userEvent.setup();
     renderEditor();
     await openTune(user);
@@ -156,7 +169,7 @@ describe("tune editor", () => {
     await user.type(downshift, "40");
 
     expect(await screen.findByText("Possible gear hunting")).toBeInTheDocument();
-    expect(screen.getAllByText(/4→3 downshift at or above 3→4 upshift/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/4→3 downshift above 3→4 upshift/).length).toBeGreaterThan(0);
   });
 
   it("sets every shift point for the fitted tires in one step", async () => {
@@ -218,7 +231,11 @@ describe("tune editor", () => {
 
     expect(await screen.findByText(/^Editing/)).toHaveTextContent("VCAB0_02_0S.efu");
     expect(fetchMock).toHaveBeenCalledWith("/api/library/VCAB0_02_0S.efu");
-    expect(screen.getByRole("button", { name: "Generate Tune" })).toBeDisabled();
+    // aria-disabled keeps the button focusable; jest-dom's toBeDisabled checks only `disabled`.
+    expect(screen.getByRole("button", { name: "Generate Tune" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(screen.getByText("Enter the 8-digit chip serial.")).toBeInTheDocument();
   });
 

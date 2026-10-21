@@ -38,6 +38,15 @@ describe("IdleRpmField warm idle", () => {
     expect(screen.getByText("rpm")).toBeInTheDocument();
   });
 
+  it("titles the card with a real h2 element inside the card title", () => {
+    render(<Harness initial={680} />);
+
+    const heading = screen.getByRole("heading", { level: 2, name: "Idle" });
+
+    expect(heading.tagName).toBe("H2");
+    expect(heading.closest("[data-slot=card-title]")).not.toBeNull();
+  });
+
   it.each([
     [680, "680"],
     [1098.5, "1098.5"],
@@ -83,6 +92,32 @@ describe("IdleRpmField warm idle", () => {
 
     expect(onCommit).not.toHaveBeenCalled();
     expect(getField()).toBeInvalid();
+  });
+
+  it("tells the user the allowed idle range and keeps the was text in the description", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={750} originalRpm={680} min={500} max={1500} />);
+    expect(getField()).toHaveAccessibleDescription("was 680");
+    await user.clear(getField());
+
+    await user.paste("2500");
+
+    expect(screen.getByText("Enter a number from 500 to 1,500.")).toBeVisible();
+    expect(getField()).toHaveAccessibleDescription("was 680 Enter a number from 500 to 1,500.");
+  });
+
+  it("puts back the idle the field had when it got focus when Escape is pressed", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={680} />);
+    await user.clear(getField());
+    await user.type(getField(), "750");
+    expect(screen.getByText("was 680")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(getField()).toHaveValue("680");
+    expect(screen.queryByText(/^was /)).not.toBeInTheDocument();
+    expect(getField()).toHaveFocus();
   });
 
   it("does not accept a negative idle when no min is given", async () => {

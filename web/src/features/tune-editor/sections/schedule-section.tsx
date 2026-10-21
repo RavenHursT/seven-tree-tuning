@@ -16,6 +16,7 @@ import type { ShiftCurveTableProps } from "../components/shift-curve-table";
 import {
   selectCurveTables,
   selectOverlapViews,
+  selectSpeedometerFactor,
   type CurveTableView,
 } from "../state/editor-selectors";
 import { useTuneEditor } from "../tune-editor-provider";
@@ -40,6 +41,8 @@ export function ScheduleSection() {
   }
 
   const { upshifts, downshifts } = selectCurveTables(state);
+  // One stored step (0.5 mph in the tune) as it reads on the speedometer.
+  const speedometerStep = 0.5 * selectSpeedometerFactor(state);
   const toTableProps = (table: CurveTableView): ShiftCurveTableProps => ({
     curveId: table.curveId,
     title: table.title,
@@ -50,6 +53,7 @@ export function ScheduleSection() {
     onSpeedoChange: (index, mph) =>
       dispatch({ type: "speedometerChanged", curveId: table.curveId, index, mph }),
     onReset: () => dispatch({ type: "curveReset", curveId: table.curveId }),
+    speedometerStep,
   });
 
   return (

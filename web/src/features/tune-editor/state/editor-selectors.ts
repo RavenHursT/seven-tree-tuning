@@ -95,7 +95,7 @@ export function selectCurveTables(state: EditorState): CurveTablesView {
   };
 }
 
-/** One line per throttle range where a downshift is at or above its upshift (gear hunting). */
+/** One line per throttle range where a downshift is above its upshift (gear hunting). */
 export function selectOverlapViews(state: EditorState): ShiftOverlapView[] {
   const { tune, values } = state;
   if (!tune || !values) return [];
@@ -104,14 +104,11 @@ export function selectOverlapViews(state: EditorState): ShiftOverlapView[] {
     const from = Math.round(throttleRawToPercent(overlap.throttleFromRaw));
     const to = Math.round(throttleRawToPercent(overlap.throttleToRaw));
     const range = from === to ? `Throttle ${from}%` : `Throttle ${from}–${to}%`;
-    const amount =
-      overlap.worstMarginMph < 0
-        ? `the downshift is up to ${(-overlap.worstMarginMph).toFixed(1)} mph above the upshift.`
-        : "the downshift equals the upshift.";
+    const excess = (-overlap.worstMarginMph).toFixed(1);
     return {
       id: `${overlap.upshift}:${overlap.throttleFromRaw}-${overlap.throttleToRaw}`,
-      title: `${overlap.upperGear}→${overlap.lowerGear} downshift at or above ${overlap.lowerGear}→${overlap.upperGear} upshift`,
-      detail: `${range}: ${amount}`,
+      title: `${overlap.upperGear}→${overlap.lowerGear} downshift above ${overlap.lowerGear}→${overlap.upperGear} upshift`,
+      detail: `${range}: the downshift is up to ${excess} mph above the upshift.`,
     };
   });
 }

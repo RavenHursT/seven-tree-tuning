@@ -15,7 +15,10 @@ describe("DiscardChangesDialog", () => {
     const proceed = vi.fn();
     const onClose = vi.fn();
     render(
-      <DiscardChangesDialog request={{ message: "Opening b.hcf replaces it.", proceed }} onClose={onClose} />,
+      <DiscardChangesDialog
+        request={{ message: "Opening b.hcf replaces it.", proceed }}
+        onClose={onClose}
+      />,
     );
 
     const dialog = screen.getByRole("alertdialog", { name: "Discard your changes?" });

@@ -97,6 +97,21 @@ describe("ShiftCurveTable layout", () => {
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 
+  it("shows the title as a level 3 heading", () => {
+    renderTable();
+
+    expect(screen.getByRole("heading", { level: 3, name: TITLE })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+  });
+
+  it("keeps the title inside the card title slot", () => {
+    renderTable();
+
+    const heading = screen.getByRole("heading", { level: 3, name: TITLE });
+
+    expect(heading.closest("[data-slot=card-title]")).not.toBeNull();
+  });
+
   it("has a Throttle, a Shift point and a Speedometer column, with mph shown for the last two", () => {
     renderTable();
 
@@ -204,6 +219,34 @@ describe("ShiftCurveTable editing", () => {
     expect(onSpeedoChange).toHaveBeenCalledExactlyOnceWith(3, 41.5);
   });
 
+  it("steps the speedometer value by speedometerStep when it is given", async () => {
+    const user = userEvent.setup();
+    const { onShiftPointChange, onSpeedoChange } = renderTable({ speedometerStep: 0.5 });
+
+    await user.click(speedometer("0% throttle"));
+    await user.keyboard("{ArrowUp}{ArrowUp}{ArrowDown}");
+
+    expect(onSpeedoChange.mock.calls).toEqual([
+      [3, 41.9],
+      [3, 42.4],
+      [3, 41.9],
+    ]);
+    expect(onShiftPointChange).not.toHaveBeenCalled();
+  });
+
+  it("uses speedometerStep for every row and leaves the shift point step at 0.5 mph", async () => {
+    const user = userEvent.setup();
+    const { onShiftPointChange, onSpeedoChange } = renderTable({ speedometerStep: 0.545 });
+
+    await user.click(speedometer("100% throttle"));
+    await user.keyboard("{ArrowUp}");
+    await user.click(shiftPoint("100% throttle"));
+    await user.keyboard("{ArrowUp}");
+
+    expect(onSpeedoChange).toHaveBeenCalledExactlyOnceWith(0, 70.845);
+    expect(onShiftPointChange).toHaveBeenCalledExactlyOnceWith(0, 65);
+  });
+
   it("accepts shift points from 0 to 127.5 mph only", async () => {
     const user = userEvent.setup();
     const { onShiftPointChange } = renderTable();
@@ -225,6 +268,32 @@ describe("ShiftCurveTable editing", () => {
     expect(shiftPoint("0% throttle")).toBeInvalid();
   });
 
+  it("tells the user the allowed range under a shift point that is typed outside it", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.clear(shiftPoint("0% throttle"));
+    await user.paste("128");
+
+    expect(screen.getByText("Enter a number from 0 to 127.5.")).toBeVisible();
+    expect(shiftPoint("0% throttle")).toHaveAccessibleDescription(
+      "was 36.0 Enter a number from 0 to 127.5.",
+    );
+  });
+
+  it("tells the user the lowest speedometer value under a speedometer value below it", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.clear(speedometer("50% throttle"));
+    await user.paste("-1");
+
+    expect(screen.getByText("Enter a number of at least 0.")).toBeVisible();
+    expect(speedometer("50% throttle")).toHaveAccessibleDescription(
+      "Enter a number of at least 0.",
+    );
+  });
+
   it("accepts speedometer values of 0 mph or more, with no upper limit", async () => {
     const user = userEvent.setup();
     const { onSpeedoChange } = renderTable();
@@ -241,6 +310,21 @@ describe("ShiftCurveTable editing", () => {
     expect(speedometer("0% throttle")).toBeInvalid();
   });
 });
+
+function ResetHarness() {
+  const [changed, setChanged] = useState(true);
+  return (
+    <ShiftCurveTable
+      curveId="up-3-4"
+      title={TITLE}
+      kind="upshift"
+      rows={rows.map((row) => ({ ...row, changed }))}
+      onShiftPointChange={vi.fn()}
+      onSpeedoChange={vi.fn()}
+      onReset={() => setChanged(false)}
+    />
+  );
+}
 
 describe("ShiftCurveTable changes", () => {
   it("highlights a changed row and shows the original shift point", () => {
@@ -259,26 +343,72 @@ describe("ShiftCurveTable changes", () => {
     expect(shiftPoint("0% throttle")).toHaveAccessibleDescription("was 36.0");
   });
 
-  it("offers Reset curve when the curve has a change and calls onReset when it is clicked", async () => {
+  it("offers a reset button named for its curve when the curve has a change, and calls onReset when it is clicked", async () => {
     const user = userEvent.setup();
     const onReset = vi.fn();
     renderTable({ onReset });
+    const button = screen.getByRole("button", { name: `Reset ${TITLE}` });
 
-    await user.click(screen.getByRole("button", { name: "Reset curve" }));
+    await user.click(button);
 
+    // The visible text is part of the accessible name (WCAG 2.5.3, label in name).
+    expect(button).toHaveTextContent(/^Reset$/);
+    expect(button).toHaveAccessibleName(`Reset ${TITLE}`);
+    expect(button).not.toHaveAttribute("aria-disabled");
     expect(onReset).toHaveBeenCalledOnce();
   });
 
-  it("has no Reset curve button when nothing in the curve has changed", () => {
+  it("shows the reset button even when nothing in the curve has changed, marked aria-disabled", () => {
     renderTable({ onReset: vi.fn(), rows: rows.map((row) => ({ ...row, changed: false })) });
 
-    expect(screen.queryByRole("button", { name: "Reset curve" })).not.toBeInTheDocument();
+    const button = screen.getByRole("button", { name: `Reset ${TITLE}` });
+
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    expect(button).not.toBeDisabled();
   });
 
-  it("has no Reset curve button when no reset handler is given", () => {
+  it("does nothing when the aria-disabled reset button is clicked or activated from the keyboard", async () => {
+    const user = userEvent.setup();
+    const onReset = vi.fn();
+    renderTable({ onReset, rows: rows.map((row) => ({ ...row, changed: false })) });
+    const button = screen.getByRole("button", { name: `Reset ${TITLE}` });
+
+    await user.click(button);
+    await user.keyboard("{Enter}");
+    await user.keyboard(" ");
+
+    expect(button).toHaveFocus();
+    expect(onReset).not.toHaveBeenCalled();
+  });
+
+  it("can be reached with the Tab key when nothing has changed", async () => {
+    const user = userEvent.setup();
+    renderTable({ onReset: vi.fn(), rows: rows.map((row) => ({ ...row, changed: false })) });
+
+    await user.tab();
+
+    expect(screen.getByRole("button", { name: `Reset ${TITLE}` })).toHaveFocus();
+  });
+
+  it("has no reset button when no reset handler is given", () => {
     renderTable();
 
-    expect(screen.queryByRole("button", { name: "Reset curve" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Reset/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps focus on the reset button after the reset clears every change", async () => {
+    const user = userEvent.setup();
+    render(<ResetHarness />);
+    const button = screen.getByRole("button", { name: `Reset ${TITLE}` });
+    await user.tab();
+    expect(button).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("button", { name: `Reset ${TITLE}` })).toBe(button);
+    expect(button).toHaveFocus();
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    expect(button).toBeEnabled();
   });
 });
 

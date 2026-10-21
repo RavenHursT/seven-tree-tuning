@@ -44,10 +44,13 @@ export interface ShiftCurveTableProps {
   onSpeedoChange(breakpointIndex: number, mph: number): void;
   onReset?(): void;
   warning?: string;
+  /** How many mph one arrow key press changes the speedometer field by. Default 0.1. */
+  speedometerStep?: number;
 }
 
 const WIDE_OPEN_THROTTLE_RAW = 255;
 const MAX_SHIFT_POINT_MPH = 127.5;
+const DEFAULT_SPEEDOMETER_STEP_MPH = 0.1;
 
 function oneDecimal(value: number): string {
   return value.toFixed(1);
@@ -82,11 +85,18 @@ function UnitHeading({ children }: { children: string }) {
 interface CurveRowProps {
   title: string;
   row: ShiftCurveRow;
+  speedometerStep: number;
   onShiftPointChange(breakpointIndex: number, mph: number): void;
   onSpeedoChange(breakpointIndex: number, mph: number): void;
 }
 
-function CurveRow({ title, row, onShiftPointChange, onSpeedoChange }: CurveRowProps) {
+function CurveRow({
+  title,
+  row,
+  speedometerStep,
+  onShiftPointChange,
+  onSpeedoChange,
+}: CurveRowProps) {
   const originalId = React.useId();
   const name = `${title}, ${spokenThrottle(row)}`;
 
@@ -131,11 +141,41 @@ function CurveRow({ title, row, onShiftPointChange, onSpeedoChange }: CurveRowPr
           value={row.speedoMph}
           onValueChange={(mph) => onSpeedoChange(row.breakpointIndex, mph)}
           min={0}
-          step={0.1}
+          step={speedometerStep}
           format={oneDecimal}
         />
       </TableCell>
     </TableRow>
+  );
+}
+
+interface ResetCurveButtonProps {
+  title: string;
+  unavailable: boolean;
+  onReset(): void;
+}
+
+/**
+ * Stays in the page and in the tab order when there is nothing to reset, so that focus is not lost
+ * when a reset removes the last change. The name includes the curve because six of these buttons
+ * are on one page.
+ */
+function ResetCurveButton({ title, unavailable, onReset }: ResetCurveButtonProps) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="xs"
+      aria-label={`Reset ${title}`}
+      aria-disabled={unavailable || undefined}
+      className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+      onClick={() => {
+        if (!unavailable) onReset();
+      }}
+    >
+      <ArrowCounterClockwiseIcon data-icon="inline-start" />
+      Reset
+    </Button>
   );
 }
 
@@ -148,20 +188,20 @@ export function ShiftCurveTable({
   onSpeedoChange,
   onReset,
   warning,
+  speedometerStep = DEFAULT_SPEEDOMETER_STEP_MPH,
 }: ShiftCurveTableProps) {
   const anyChanged = rows.some((row) => row.changed);
 
   return (
     <Card size="sm" className="min-w-0" data-curve-id={curveId}>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle>
+          <h3>{title}</h3>
+        </CardTitle>
         <CardDescription>{kind === "upshift" ? "Upshift" : "Downshift"}</CardDescription>
-        {onReset && anyChanged ? (
+        {onReset ? (
           <CardAction>
-            <Button variant="outline" size="xs" onClick={() => onReset()}>
-              <ArrowCounterClockwiseIcon data-icon="inline-start" />
-              Reset curve
-            </Button>
+            <ResetCurveButton title={title} unavailable={!anyChanged} onReset={onReset} />
           </CardAction>
         ) : null}
       </CardHeader>
@@ -184,6 +224,7 @@ export function ShiftCurveTable({
                 key={row.breakpointIndex}
                 title={title}
                 row={row}
+                speedometerStep={speedometerStep}
                 onShiftPointChange={onShiftPointChange}
                 onSpeedoChange={onSpeedoChange}
               />

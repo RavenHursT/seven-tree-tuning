@@ -17,6 +17,17 @@ describe("TuneSourcePanel", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Starting tune" })).toBeInTheDocument();
   });
 
+  it("makes the title a real h2 element inside the card title", () => {
+    renderPanel();
+
+    const heading = screen.getByRole("heading", { level: 2, name: "Starting tune" });
+
+    expect(heading.tagName).toBe("H2");
+    expect(heading).not.toHaveAttribute("role");
+    expect(heading).not.toHaveAttribute("aria-level");
+    expect(heading.closest("[data-slot=card-title]")).not.toBeNull();
+  });
+
   it("offers an upload tab and a public library tab", () => {
     renderPanel();
 
