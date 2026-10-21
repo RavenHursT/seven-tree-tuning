@@ -30,17 +30,14 @@ describe("RootLayout", () => {
     expect(renderLayout().documentElement.getAttribute("lang")).toBe("en");
   });
 
-  it("applies the mono font and the Geist font variables to the page", () => {
+  it("applies JetBrains Mono, the only font the page uses, and loads no other font", () => {
     const classes = Array.from(renderLayout().documentElement.classList);
 
     expect(classes).toEqual(
-      expect.arrayContaining([
-        "font-mono",
-        "jetbrains-mono-variable",
-        "geist-sans-variable",
-        "antialiased",
-      ]),
+      expect.arrayContaining(["font-mono", "jetbrains-mono-variable", "antialiased"]),
     );
+    expect(classes).not.toContain("geist-sans-variable");
+    expect(classes).not.toContain("geist-mono-variable");
   });
 
   it("shows the app header above the page content", () => {

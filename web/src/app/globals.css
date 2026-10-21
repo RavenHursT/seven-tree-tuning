@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-mono);
   --font-mono: var(--font-mono);
   --font-heading: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -136,5 +136,12 @@
   }
   html {
     @apply font-mono;
+    /* The sticky Generate Tune bar covers the bottom of the window; keep focused fields above it. */
+    scroll-padding-bottom: 12rem;
+  }
+  @media (width < 40rem) {
+    html {
+      scroll-padding-bottom: 18rem;
+    }
   }
 }

@@ -31,11 +31,14 @@ export default function TuneEditorPage() {
         </div>
         <ScheduleSection />
       </main>
-      <div className="sticky bottom-0 z-10 border-t bg-background/90 backdrop-blur">
+      <section
+        aria-label="Generate tune"
+        className="sticky bottom-0 z-10 border-t bg-background/90 backdrop-blur"
+      >
         <div className="mx-auto w-full max-w-7xl px-4 py-3 sm:px-6">
           <GenerateSection />
         </div>
-      </div>
+      </section>
     </TuneEditorProvider>
   );
 }
