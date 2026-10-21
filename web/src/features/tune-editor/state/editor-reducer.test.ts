@@ -61,17 +61,17 @@ describe("loading a tune", () => {
     expect(state.loadError).toBeNull();
   });
 
-  it("starts editing from the tune's own values and suggests an output file name", () => {
+  it("starts editing from the tune's own values and suggests an output name without the extension", () => {
     const state = loadedState();
     expect(state.values).toBe(state.tune?.originalValues);
-    expect(state.outputFileName).toBe("TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG-CUSTOM.hcf");
+    expect(state.outputFileName).toBe("TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG-CUSTOM");
     expect(state.loading).toBeNull();
     expect(state.loadError).toBeNull();
   });
 
   it("names the output after a library tune too", () => {
     const state = loadedState({ kind: "library", fileName: "VCAB0_02_40DD.efu", format: "efu" });
-    expect(state.outputFileName).toBe("VCAB0_02_40DD-CUSTOM.hcf");
+    expect(state.outputFileName).toBe("VCAB0_02_40DD-CUSTOM");
   });
 
   it("keeps the loaded tune when a later load fails", () => {
@@ -83,6 +83,28 @@ describe("loading a tune", () => {
     expect(state.tune).toBe(loaded.tune);
     expect(state.loadError).toBe("The chip serial does not match this file.");
     expect(state.loading).toBeNull();
+  });
+
+  it("drops a held .hcf when another load starts", () => {
+    const held = editorReducer(initialEditorState, {
+      type: "pendingFileHeld",
+      file: { fileName: "a.hcf", bytes: new Uint8Array([1]) },
+    });
+    const state = editorReducer(held, { type: "loadStarted", kind: "library", fileName: "b.efu" });
+    expect(state.pendingFile).toBeNull();
+  });
+
+  it("is no longer loading once a .hcf is held for its serial", () => {
+    const started = editorReducer(initialEditorState, {
+      type: "loadStarted",
+      kind: "upload",
+      fileName: "a.hcf",
+    });
+    const held = editorReducer(started, {
+      type: "pendingFileHeld",
+      file: { fileName: "a.hcf", bytes: new Uint8Array([1]) },
+    });
+    expect(held.loading).toBeNull();
   });
 
   it("holds a .hcf file picked before the serial was entered, until a tune loads", () => {

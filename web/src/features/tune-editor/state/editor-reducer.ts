@@ -66,9 +66,9 @@ export const initialEditorState: EditorState = {
   pendingFile: null,
 };
 
-/** "TDE1_30N_DAILYDRIVER-REVD.hcf" -> "TDE1_30N_DAILYDRIVER-REVD-CUSTOM.hcf". */
+/** "TDE1_30N_DAILYDRIVER-REVD.hcf" -> "TDE1_30N_DAILYDRIVER-REVD-CUSTOM" (".hcf" is added on save). */
 export function defaultOutputFileName(source: TuneSource): string {
-  return `${source.fileName.replace(/\.[^.]*$/, "")}-CUSTOM.hcf`;
+  return `${source.fileName.replace(/\.[^.]*$/, "")}-CUSTOM`;
 }
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -84,6 +84,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...state,
         loading: { kind: action.kind, fileName: action.fileName },
         loadError: null,
+        pendingFile: null,
       };
     case "loadSucceeded":
       return {
@@ -98,7 +99,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case "loadFailed":
       return { ...state, loading: null, loadError: action.message };
     case "pendingFileHeld":
-      return { ...state, pendingFile: action.file, loadError: null };
+      return { ...state, pendingFile: action.file, loading: null, loadError: null };
     case "outputFileNameChanged":
       return { ...state, outputFileName: action.value };
     default:

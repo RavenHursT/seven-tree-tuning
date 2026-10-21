@@ -64,7 +64,7 @@ function RepositoryLink() {
 export function AppHeader() {
   return (
     <header className="border-b bg-card">
-      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
         <BrandLogo />
         <AppTitle />
         <div className="ml-auto flex items-center gap-1">
