@@ -56,7 +56,7 @@ describe("ShiftSchedule", () => {
     const section = screen.getByRole("region", { name: "Upshifts" });
 
     expect(
-      within(section).getByRole("heading", { level: 2, name: "Upshifts" }),
+      within(section).getByRole("heading", { level: 3, name: "Upshifts" }),
     ).toBeInTheDocument();
     expect(tableNames(section)).toEqual(["1→2", "2→3", "3→4 (overdrive)"]);
   });
@@ -67,7 +67,7 @@ describe("ShiftSchedule", () => {
     const section = screen.getByRole("region", { name: "Downshifts" });
 
     expect(
-      within(section).getByRole("heading", { level: 2, name: "Downshifts" }),
+      within(section).getByRole("heading", { level: 3, name: "Downshifts" }),
     ).toBeInTheDocument();
     expect(tableNames(section)).toEqual(["2→1", "3→2", "4→3 (out of overdrive)"]);
   });
@@ -88,20 +88,21 @@ describe("ShiftSchedule", () => {
     ).toHaveValue("27.0");
   });
 
-  it("keeps Upshifts and Downshifts as level 2 headings and shows each curve title as a level 3 heading", () => {
+  it("shows Upshifts and Downshifts as level 3 headings and each curve title as a level 4 heading, under the module's level 2 heading", () => {
     render(<ShiftSchedule upshifts={upshifts} downshifts={downshifts} />);
 
-    const levelTwo = screen
-      .getAllByRole("heading", { level: 2 })
+    const levelThree = screen
+      .getAllByRole("heading", { level: 3 })
       .map((heading) => heading.textContent);
     const upshiftTitles = within(screen.getByRole("region", { name: "Upshifts" }))
-      .getAllByRole("heading", { level: 3 })
+      .getAllByRole("heading", { level: 4 })
       .map((heading) => heading.textContent);
     const downshiftTitles = within(screen.getByRole("region", { name: "Downshifts" }))
-      .getAllByRole("heading", { level: 3 })
+      .getAllByRole("heading", { level: 4 })
       .map((heading) => heading.textContent);
 
-    expect(levelTwo).toEqual(["Upshifts", "Downshifts"]);
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    expect(levelThree).toEqual(["Upshifts", "Downshifts"]);
     expect(upshiftTitles).toEqual(["1→2", "2→3", "3→4 (overdrive)"]);
     expect(downshiftTitles).toEqual(["2→1", "3→2", "4→3 (out of overdrive)"]);
   });

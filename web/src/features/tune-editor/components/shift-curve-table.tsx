@@ -113,10 +113,12 @@ function CurveRow({
       </TableHead>
       <TableCell>
         <div className="flex items-center gap-2">
+          {/* w-20, not wider: three curve cards share a row inside the Shiftpoints module from
+              1280 px up, and a wider field makes each table scroll sideways in its card. */}
           <NumberField
             aria-label={`${name}, shift point (mph)`}
             aria-describedby={row.changed ? originalId : undefined}
-            className="w-24"
+            className="w-20"
             value={row.shiftPointMph}
             onValueChange={(mph) => onShiftPointChange(row.breakpointIndex, mph)}
             min={0}
@@ -137,7 +139,7 @@ function CurveRow({
       <TableCell>
         <NumberField
           aria-label={`${name}, speedometer (mph)`}
-          className="w-24"
+          className="w-20"
           value={row.speedoMph}
           onValueChange={(mph) => onSpeedoChange(row.breakpointIndex, mph)}
           min={0}
@@ -196,7 +198,7 @@ export function ShiftCurveTable({
     <Card size="sm" className="min-w-0" data-curve-id={curveId}>
       <CardHeader>
         <CardTitle>
-          <h3>{title}</h3>
+          <h4>{title}</h4>
         </CardTitle>
         <CardDescription>{kind === "upshift" ? "Upshift" : "Downshift"}</CardDescription>
         {onReset ? (

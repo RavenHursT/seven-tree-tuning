@@ -237,14 +237,19 @@ For a production build, run `npm run build:web`, then `npm start`.
 
 ### Use it
 
-1. Enter the chip serial: the first 8 characters of the chip's USB serial. HydraFlash shows it in
-   its status bar.
-2. Load a starting tune. Upload a `.hcf`, a PHP library `.efu` or a decrypted `.bin`, or pick one of
-   the 35 TDE1 tunes in Power Hungry's public library.
-3. Enter the tires on the truck. The default is the factory size, LT235/85R16.
-4. Edit any shift point or speedometer value. Each one updates the other as you type.
-5. Edit the warm idle.
+1. Enter the chip serial in the **Chip** module: the first 8 characters of the chip's USB serial.
+   HydraFlash shows it in its status bar.
+2. Load a base tune in the **Base Tune** module. Upload a `.hcf`, a PHP library `.efu` or a
+   decrypted `.bin`, or pick one of the 35 TDE1 tunes in Power Hungry's public library.
+3. Enter the tires on the truck in the **Tires** module. The module stays disabled until a tune is
+   loaded. The default is the factory size, LT235/85R16.
+4. Edit any shift point or speedometer value in the **Shiftpoints** module. Each one updates the
+   other as you type. The **?** button next to the title explains the two columns.
+5. Edit the warm idle in the **Idle** module.
 6. Click **Generate Tune** and save the `.hcf`. Load it into a chip position with HydraFlash.
+
+All modules are open when the page loads. Click the title of a module to collapse it to a smaller
+card that shows only the values that are set, for example the serial or the tire size.
 
 A `.hcf` picked before the serial is entered stays loaded and opens when the serial is valid. A wrong
 serial shows "The chip serial does not match this file."
@@ -255,7 +260,7 @@ serial shows "The chip serial does not match this file."
   calibration tire size. Set that size under **Speedometer calibration**; the default is LT235/85R16.
 - **Speedometer:** the road speed on the fitted tires. It equals the shift point × fitted diameter ÷
   calibration diameter. A speedometer calibrated for the fitted tires shows this value.
-- **Set shift points for these tires:** replaces every shift point with the starting tune's value ×
+- **Set shift points for these tires:** replaces every shift point with the base tune's value ×
   calibration diameter ÷ fitted diameter. With LT265/75R16 as the calibration size and 315/75R16
   fitted, the five `REVD-DOWNSHIFTCHG` tunes become the shipped `-TIRECOMP-UPDOWN` tunes, byte for
   byte. With the default LT235/85R16, 12 to 18 shift points per tune land 0.5 mph higher.

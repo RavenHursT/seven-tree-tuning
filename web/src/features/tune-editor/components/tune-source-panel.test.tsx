@@ -5,27 +5,19 @@ import { describe, expect, it } from "vitest";
 import { TuneSourcePanel, type TuneSourcePanelProps } from "./tune-source-panel";
 
 function renderPanel(props: Partial<TuneSourcePanelProps> = {}) {
-  render(
+  return render(
     <TuneSourcePanel upload={<p>Upload section</p>} library={<p>Library section</p>} {...props} />,
   );
 }
 
 describe("TuneSourcePanel", () => {
-  it("is titled Starting tune", () => {
-    renderPanel();
+  it("draws no card and no heading of its own: the Base Tune module around it provides both", () => {
+    const { container } = renderPanel();
 
-    expect(screen.getByRole("heading", { level: 2, name: "Starting tune" })).toBeInTheDocument();
-  });
-
-  it("makes the title a real h2 element inside the card title", () => {
-    renderPanel();
-
-    const heading = screen.getByRole("heading", { level: 2, name: "Starting tune" });
-
-    expect(heading.tagName).toBe("H2");
-    expect(heading).not.toHaveAttribute("role");
-    expect(heading).not.toHaveAttribute("aria-level");
-    expect(heading.closest("[data-slot=card-title]")).not.toBeNull();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.queryByText(/starting tune/i)).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="card"]')).toBeNull();
+    expect(container.querySelector('[data-slot="card-title"]')).toBeNull();
   });
 
   it("offers an upload tab and a public library tab", () => {

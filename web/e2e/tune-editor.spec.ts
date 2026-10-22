@@ -10,6 +10,7 @@ import { buildEfuFile, buildHcfFile, buildUploadedImage, CHIP_SERIAL } from "./s
 const UPLOAD_NAME = "synthetic-tune.hcf";
 const LIBRARY_FILE = "VCAB0_02_0S.efu";
 const FITTED_TIRES = "Tires on the truck";
+const TIRES_LOCKED_MESSAGE = "Upload or select a base tune first.";
 
 /** The 3→4 closed-throttle shift point of the synthetic tune, in mph. */
 const SHIFT_POINT_3_4_CLOSED = "38.0";
@@ -52,6 +53,61 @@ test.describe("tune editor", () => {
     await expect(page.getByText("Chip serial needed", { exact: true })).toHaveCount(0);
     const shiftPoint = editor.curveInput(UPSHIFT_3_4, CLOSED_THROTTLE, "shift point");
     await expect(shiftPoint).toHaveValue(SHIFT_POINT_3_4_CLOSED);
+  });
+
+  test("keeps the Tires module disabled until a tune is loaded, and shows the values of a collapsed module", async ({
+    page,
+    editor,
+  }) => {
+    await editor.open();
+    const fitted = editor.tireGroup(FITTED_TIRES);
+    const lockedMessage = page.getByText(TIRES_LOCKED_MESSAGE, { exact: true });
+    const manualTab = fitted.getByRole("tab", { name: "Manual tire size", exact: true });
+
+    await expect(lockedMessage).toBeVisible();
+    await expect(manualTab).toBeDisabled();
+    await expect(fitted.getByRole("combobox")).toBeDisabled();
+
+    await editor.openUpload(hcfUpload());
+
+    await expect(lockedMessage).toHaveCount(0);
+    await expect(manualTab).toBeEnabled();
+    await expect(fitted.getByRole("combobox")).toBeEnabled();
+
+    await editor.moduleToggle("Idle").click();
+
+    await expect(editor.warmIdle).toHaveCount(0);
+    await expect(page.getByText("680 rpm", { exact: true })).toBeVisible();
+    await expect(editor.moduleToggle("Idle")).toHaveAccessibleDescription("680 rpm");
+
+    await editor.moduleToggle("Tires").click();
+
+    await expect(fitted).toHaveCount(0);
+    await expect(
+      page.getByText("235/85R16 · 31.73 in · calibrated for 235/85R16 · speedometer × 1.0000", {
+        exact: true,
+      }),
+    ).toBeVisible();
+
+    await editor.moduleToggle("Idle").click();
+    await expect(editor.warmIdle).toHaveValue("680");
+  });
+
+  test("fits each shift curve table in its card, so none scrolls sideways", async ({
+    page,
+    editor,
+  }) => {
+    await editor.open();
+    await editor.openUpload(hcfUpload());
+    // The test window is 1280 px wide: the narrowest width that puts three curves in a row.
+    const tables = page.locator('[data-curve-id] [data-slot="table-container"]');
+    await expect(tables).toHaveCount(6);
+
+    const overflows = await tables.evaluateAll((elements) =>
+      elements.map((element) => element.scrollWidth - element.clientWidth),
+    );
+
+    expect(overflows).toEqual([0, 0, 0, 0, 0, 0]);
   });
 
   test("converts between shift point and speedometer mph for the tires on the truck", async ({

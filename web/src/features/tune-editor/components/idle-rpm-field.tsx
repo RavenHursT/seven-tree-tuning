@@ -4,7 +4,6 @@ import * as React from "react";
 import { CaretDownIcon, WarningIcon } from "@phosphor-icons/react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import {
@@ -71,6 +70,10 @@ function IdleCurveSection({ points }: { points: readonly IdleCurvePointView[] })
   );
 }
 
+/**
+ * The warm idle field and the read-only idle curve. It draws no card and no heading; the Idle
+ * module around it provides both.
+ */
 export function IdleRpmField({
   rpm,
   originalRpm,
@@ -87,41 +90,34 @@ export function IdleRpmField({
   const describedBy = [changed && wasId, warning && warningId].filter(Boolean).join(" ");
 
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>
-          <h2>Idle</h2>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={fieldId}>Warm idle (rpm)</Label>
-          <NumberField
-            id={fieldId}
-            className="w-40"
-            value={rpm}
-            onValueChange={onRpmChange}
-            min={min}
-            max={max}
-            step={10}
-            format={formatRpm}
-            suffix="rpm"
-            aria-describedby={describedBy || undefined}
-          />
-          {changed ? (
-            <p id={wasId} className="text-muted-foreground">
-              was {formatRpm(originalRpm)}
-            </p>
-          ) : null}
-          {warning ? (
-            <p id={warningId} className="flex items-start gap-1.5 text-warning">
-              <WarningIcon className="mt-0.5 size-3.5 shrink-0" />
-              {warning}
-            </p>
-          ) : null}
-        </div>
-        {idleCurve && idleCurve.length > 0 ? <IdleCurveSection points={idleCurve} /> : null}
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={fieldId}>Warm idle (rpm)</Label>
+        <NumberField
+          id={fieldId}
+          className="w-40"
+          value={rpm}
+          onValueChange={onRpmChange}
+          min={min}
+          max={max}
+          step={10}
+          format={formatRpm}
+          suffix="rpm"
+          aria-describedby={describedBy || undefined}
+        />
+        {changed ? (
+          <p id={wasId} className="text-muted-foreground">
+            was {formatRpm(originalRpm)}
+          </p>
+        ) : null}
+        {warning ? (
+          <p id={warningId} className="flex items-start gap-1.5 text-warning">
+            <WarningIcon className="mt-0.5 size-3.5 shrink-0" />
+            {warning}
+          </p>
+        ) : null}
+      </div>
+      {idleCurve && idleCurve.length > 0 ? <IdleCurveSection points={idleCurve} /> : null}
+    </div>
   );
 }

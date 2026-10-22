@@ -102,6 +102,15 @@ export class EditorPage {
   }
 
   /**
+   * The button in a module's heading that collapses and expands it, for example "Idle" or
+   * "Shiftpoints". Its name is the module's title alone. Click it only after a step that waits for
+   * the page to be interactive, such as `openUpload`: a click before React attaches does nothing.
+   */
+  moduleToggle(title: string): Locator {
+    return this.page.getByRole("button", { name: title, exact: true });
+  }
+
+  /**
    * Opens the Manual tab and types a size such as "315/75R16" or "35x12.50R17", then leaves the
    * field the way a person tabs on.
    */

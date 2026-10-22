@@ -97,17 +97,18 @@ describe("ShiftCurveTable layout", () => {
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 
-  it("shows the title as a level 3 heading", () => {
+  it("shows the title as a level 4 heading, under the Upshifts or Downshifts level 3 heading", () => {
     renderTable();
 
-    expect(screen.getByRole("heading", { level: 3, name: TITLE })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 4, name: TITLE })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
   });
 
   it("keeps the title inside the card title slot", () => {
     renderTable();
 
-    const heading = screen.getByRole("heading", { level: 3, name: TITLE });
+    const heading = screen.getByRole("heading", { level: 4, name: TITLE });
 
     expect(heading.closest("[data-slot=card-title]")).not.toBeNull();
   });

@@ -1,22 +1,19 @@
 "use client";
 
-import { isChipSerial, type ContainerFormat } from "@seven-tree/hydra";
+import { isChipSerial } from "@seven-tree/hydra";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 
 import { useTuneEditor } from "../tune-editor-provider";
 
-const FORMAT_LABELS: Readonly<Record<ContainerFormat, string>> = {
-  hcf: "Hydra .hcf",
-  efu: "PHP library .efu",
-  bin: "decrypted .bin",
-};
-
-/** What is loaded, loading or waiting, and why a load failed. */
+/**
+ * What is loading or waiting, and why a load failed. The page puts it outside every module, so
+ * collapsing a module never hides an alert. The open tune shows in the Base Tune module.
+ */
 export function TuneStatus() {
   const { state } = useTuneEditor();
-  const { loading, loadError, pendingFile, tune, chipSerial } = state;
+  const { loading, loadError, pendingFile, chipSerial } = state;
   const needsSerial = pendingFile !== null && loadError === null && !isChipSerial(chipSerial);
 
   return (
@@ -39,12 +36,6 @@ export function TuneStatus() {
           <AlertTitle>Could not open the tune</AlertTitle>
           <AlertDescription>{loadError}</AlertDescription>
         </Alert>
-      )}
-      {tune && (
-        <p className="text-sm">
-          Editing <span className="font-semibold">{tune.source.fileName}</span>
-          {` · ${FORMAT_LABELS[tune.source.format]}`}
-        </p>
       )}
     </div>
   );

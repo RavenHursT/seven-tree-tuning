@@ -5,16 +5,24 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LibraryTuneOption } from "./components/library-tune-picker";
+import { BaseTuneModule } from "./sections/base-tune-module";
+import { ChipModule } from "./sections/chip-module";
 import { GenerateSection } from "./sections/generate-section";
-import { IdleSection } from "./sections/idle-section";
+import { IdleModule } from "./sections/idle-module";
 import { LibrarySection } from "./sections/library-section";
-import { ScheduleSection } from "./sections/schedule-section";
-import { SettingsSection } from "./sections/settings-section";
+import { ShiftPointsModule } from "./sections/shift-points-module";
+import { TiresModule } from "./sections/tires-module";
 import { TuneStatus } from "./sections/tune-status";
 import { UploadSection } from "./sections/upload-section";
 import { TuneEditorProvider } from "./tune-editor-provider";
 
 const SERIAL = "0A1B2C3D";
+
+/** The text the "About shift points" popover holds, word for word. */
+const SHIFT_POINTS_HELP =
+  "Shift point is the speed stored in the tune; the PCM computes it for the calibration tire size. Speedometer is the road speed on the tires entered, which a speedometer calibrated for those tires shows. If the speedometer was not recalibrated for the tires, the dash shows the shift point instead. Editing either column updates the other.";
+
+const TIRES_LOCKED_MESSAGE = "Upload or select a base tune first.";
 const STOCK_OPTION: LibraryTuneOption = {
   fileName: "VCAB0_02_0S.efu",
   code: "0S",
@@ -38,15 +46,21 @@ function efuBytes(): Uint8Array {
   return new Blowfish(new Uint8Array([0xbd, 0xc3, 0x07, 0x27, 0x69])).encryptEcb(plain);
 }
 
+/** The modules in the order the page shows them: left column, right column, full width. */
 function renderEditor(tunes: LibraryTuneOption[] = []) {
   return render(
     <TuneEditorProvider>
-      <UploadSection />
-      <LibrarySection tunes={tunes} sourceUrl="https://gopowerhungry.com/pages/hydra-chip" />
+      <BaseTuneModule
+        upload={<UploadSection />}
+        library={
+          <LibrarySection tunes={tunes} sourceUrl="https://gopowerhungry.com/pages/hydra-chip" />
+        }
+      />
+      <ChipModule />
       <TuneStatus />
-      <SettingsSection />
-      <ScheduleSection />
-      <IdleSection />
+      <IdleModule />
+      <TiresModule />
+      <ShiftPointsModule />
       <GenerateSection />
     </TuneEditorProvider>,
   );
@@ -107,6 +121,33 @@ async function editWarmIdle(user: ReturnType<typeof userEvent.setup>, rpm: strin
   await user.tab();
 }
 
+/** The card of the module whose level 2 heading has this title. */
+function moduleCard(title: string): HTMLElement {
+  const card = screen
+    .getByRole("heading", { level: 2, name: title })
+    .closest<HTMLElement>('[data-slot="card"]');
+  if (!card) throw new Error(`No module card for ${title}`);
+  return card;
+}
+
+/** The button in a module's heading that collapses and expands it. */
+function moduleToggle(title: string): HTMLElement {
+  return screen.getByRole("button", { name: title });
+}
+
+/** Every button and field in a module, apart from the toggle in its heading. */
+function controlsInModule(title: string): HTMLElement[] {
+  const toggle = moduleToggle(title);
+  return Array.from(
+    moduleCard(title).querySelectorAll<HTMLElement>("button, input, select, textarea"),
+  ).filter((control) => control !== toggle);
+}
+
+/** The tire fields of one group. Look them up again after a tune loads: the module redraws them. */
+function tireGroup(name: string) {
+  return within(screen.getByRole("group", { name }));
+}
+
 describe("tune editor", () => {
   it("asks for the chip serial before it opens a .hcf, then opens it", async () => {
     const user = userEvent.setup();
@@ -117,7 +158,7 @@ describe("tune editor", () => {
 
     await user.type(screen.getByLabelText("Chip serial"), SERIAL);
 
-    expect(await screen.findByText(/^Editing/)).toHaveTextContent("tune.hcf");
+    expect(await screen.findByText(/^Editing/)).toHaveTextContent("Editing tune.hcf · Hydra .hcf");
     expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("38.0");
   });
 
@@ -338,9 +379,12 @@ describe("tune editor", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderEditor([STOCK_OPTION]);
 
+    await user.click(screen.getByRole("tab", { name: "PHP public library" }));
     await user.click(screen.getByRole("option", { name: /Stock/ }));
 
-    expect(await screen.findByText(/^Editing/)).toHaveTextContent("VCAB0_02_0S.efu");
+    expect(await screen.findByText(/^Editing/)).toHaveTextContent(
+      "Editing VCAB0_02_0S.efu · PHP library .efu",
+    );
     expect(fetchMock).toHaveBeenCalledWith("/api/library/VCAB0_02_0S.efu");
     // aria-disabled keeps the button focusable; jest-dom's toBeDisabled checks only `disabled`.
     expect(screen.getByRole("button", { name: "Generate Tune" })).toHaveAttribute(
@@ -358,6 +402,7 @@ describe("tune editor", () => {
     );
     renderEditor([STOCK_OPTION]);
 
+    await user.click(screen.getByRole("tab", { name: "PHP public library" }));
     await user.click(screen.getByRole("option", { name: /Stock/ }));
 
     expect(
@@ -507,5 +552,315 @@ describe("unsaved changes", () => {
 
     // 38.0 mph x 31.73 / 34.60 = 34.8 mph, stored in 0.5 mph steps.
     expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("35.0");
+  });
+});
+
+describe("page modules", () => {
+  describe("titles and order", () => {
+    it("titles the tune source module Base Tune, not Starting tune", () => {
+      renderEditor();
+
+      expect(screen.getByRole("heading", { level: 2, name: "Base Tune" })).toBeInTheDocument();
+      expect(screen.queryByText(/starting tune/i)).not.toBeInTheDocument();
+    });
+
+    it("gives the chip serial its own Chip module, apart from the tires", () => {
+      renderEditor();
+
+      expect(within(moduleCard("Chip")).getByLabelText("Chip serial")).toBeInTheDocument();
+      expect(within(moduleCard("Tires")).queryByLabelText("Chip serial")).not.toBeInTheDocument();
+      expect(screen.queryByText("Chip and tires")).not.toBeInTheDocument();
+    });
+
+    it("opens every module at the start", () => {
+      renderEditor();
+
+      for (const title of ["Base Tune", "Chip", "Idle", "Tires", "Shiftpoints"]) {
+        expect(moduleToggle(title)).toHaveAttribute("aria-expanded", "true");
+      }
+    });
+
+    it("shows the modules as level 2 headings, and the schedule headings below Shiftpoints", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await openTune(user);
+
+      const headings = (level: number) =>
+        screen.getAllByRole("heading", { level }).map((heading) => heading.textContent);
+
+      expect(headings(2)).toEqual(["Base Tune", "Chip", "Idle", "Tires", "Shiftpoints"]);
+      expect(headings(3)).toEqual(["Upshifts", "Downshifts"]);
+      expect(headings(4)).toEqual([
+        "1→2",
+        "2→3",
+        "3→4 (overdrive)",
+        "2→1",
+        "3→2",
+        "4→3 (out of overdrive)",
+      ]);
+    });
+  });
+
+  describe("before a tune is loaded", () => {
+    it("keeps the tire fields disabled, with a message, until a tune is loaded", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      const tires = () => within(moduleCard("Tires"));
+      const fitted = () => tireGroup("Tires on the truck");
+
+      expect(tires().getByText(TIRES_LOCKED_MESSAGE)).toBeInTheDocument();
+      expect(fitted().getByRole("combobox", { name: /^Tires on the truck/ })).toBeDisabled();
+      expect(fitted().getByRole("tab", { name: "Choose tire size" })).toBeDisabled();
+      expect(fitted().getByRole("tab", { name: "Manual tire size" })).toBeDisabled();
+      expect(tires().getByRole("button", { name: /speedometer calibration/i })).toBeDisabled();
+      expect(
+        tires().getByRole("button", { name: "Set shift points for these tires" }),
+      ).toBeDisabled();
+      // No button, tab or field of the module is usable, whichever tab is showing.
+      expect(controlsInModule("Tires").length).toBeGreaterThan(0);
+      for (const control of controlsInModule("Tires")) expect(control).toBeDisabled();
+
+      await openTune(user);
+
+      expect(tires().queryByText(TIRES_LOCKED_MESSAGE)).not.toBeInTheDocument();
+      expect(fitted().getByRole("combobox", { name: /^Tires on the truck/ })).toBeEnabled();
+      expect(fitted().getByRole("tab", { name: "Choose tire size" })).toBeEnabled();
+      expect(fitted().getByRole("tab", { name: "Manual tire size" })).toBeEnabled();
+      expect(tires().getByRole("button", { name: /speedometer calibration/i })).toBeEnabled();
+    });
+
+    it("lets the disabled Tires module collapse to the factory tires", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      await user.click(moduleToggle("Tires"));
+
+      expect(screen.queryByRole("group", { name: "Tires on the truck" })).not.toBeInTheDocument();
+      expect(screen.queryByText(TIRES_LOCKED_MESSAGE)).not.toBeInTheDocument();
+      expect(
+        within(moduleCard("Tires")).getByText(
+          "235/85R16 · 31.73 in · calibrated for 235/85R16 · speedometer × 1.0000",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("tells what to do in Idle and Shiftpoints until a tune is loaded", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      const noTuneIdle = "Load a base tune to edit the idle speed.";
+      const noTuneSchedule =
+        "Upload a .hcf or pick a PHP library tune to see its shift points and idle speed.";
+
+      expect(within(moduleCard("Idle")).getByText(noTuneIdle)).toBeInTheDocument();
+      expect(screen.queryByRole("textbox", { name: "Warm idle (rpm)" })).not.toBeInTheDocument();
+      expect(within(moduleCard("Shiftpoints")).getByText(noTuneSchedule)).toBeInTheDocument();
+
+      await openTune(user);
+
+      expect(screen.queryByText(noTuneIdle)).not.toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Warm idle (rpm)" })).toHaveValue("680");
+      expect(screen.queryByText(noTuneSchedule)).not.toBeInTheDocument();
+    });
+
+    it("shows No tune loaded in the collapsed Base Tune, Idle and Shiftpoints modules", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      for (const title of ["Base Tune", "Idle", "Shiftpoints"]) {
+        await user.click(moduleToggle(title));
+
+        expect(within(moduleCard(title)).getByText("No tune loaded")).toBeInTheDocument();
+      }
+    });
+  });
+
+  describe("shift point help", () => {
+    it("puts a question mark button right after the Shiftpoints title, before a tune is loaded too", () => {
+      renderEditor();
+      const shiftpoints = within(moduleCard("Shiftpoints"));
+      const heading = shiftpoints.getByRole("heading", { level: 2, name: "Shiftpoints" });
+      const help = shiftpoints.getByRole("button", { name: "About shift points" });
+
+      expect(heading.compareDocumentPosition(help)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      expect(help.closest('[data-slot="card-title"]')).not.toBeNull();
+      expect(help).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("opens a popover with the explanation word for word, and no paragraph of it stays on the page", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await openTune(user);
+      const explanation = /Shift point is the speed stored in the tune/;
+      expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "About shift points" }));
+
+      const popover = await screen.findByRole("dialog", { name: "About shift points" });
+      expect(within(popover).getByText(SHIFT_POINTS_HELP)).toBeInTheDocument();
+      expect(screen.getAllByText(explanation)).toHaveLength(1);
+      expect(moduleToggle("Shiftpoints")).toHaveAttribute("aria-expanded", "true");
+    });
+  });
+
+  describe("collapsing", () => {
+    it("collapses Base Tune to the file name and format, and expands it back to the source tabs", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await openTune(user);
+
+      await user.click(moduleToggle("Base Tune"));
+
+      expect(screen.queryByLabelText(/drop a file here/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole("tab", { name: "Upload a file" })).not.toBeInTheDocument();
+      expect(
+        within(moduleCard("Base Tune")).getByText("tune.hcf · Hydra .hcf"),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/^Editing/)).not.toBeInTheDocument();
+
+      await user.click(moduleToggle("Base Tune"));
+
+      expect(screen.getByLabelText(/drop a file here/i)).toBeInTheDocument();
+      expect(within(moduleCard("Base Tune")).getByText(/^Editing/)).toHaveTextContent(
+        "Editing tune.hcf · Hydra .hcf",
+      );
+      expect(
+        within(moduleCard("Base Tune")).queryByText("tune.hcf · Hydra .hcf"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows the open tune inside the Base Tune module, not between the modules", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await openTune(user);
+
+      const editing = screen.getByText(/^Editing/);
+
+      expect(editing.closest('[data-slot="card"]')).toBe(moduleCard("Base Tune"));
+      expect(editing).toHaveTextContent("Editing tune.hcf · Hydra .hcf");
+    });
+
+    it("collapses Chip to the serial, and expands it back to the field with the serial in it", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await user.type(screen.getByLabelText("Chip serial"), SERIAL);
+
+      await user.click(moduleToggle("Chip"));
+
+      expect(screen.queryByLabelText("Chip serial")).not.toBeInTheDocument();
+      expect(within(moduleCard("Chip")).getByText(SERIAL)).toBeInTheDocument();
+
+      await user.click(moduleToggle("Chip"));
+
+      expect(screen.getByLabelText("Chip serial")).toHaveValue(SERIAL);
+      expect(within(moduleCard("Chip")).queryByText(SERIAL)).not.toBeInTheDocument();
+    });
+
+    it("shows Not entered when the collapsed Chip module has no serial", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      await user.click(moduleToggle("Chip"));
+
+      expect(within(moduleCard("Chip")).getByText("Not entered")).toBeInTheDocument();
+    });
+
+    it("collapses Tires to the fitted tires and the speedometer factor, and expands it back to the fields", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await openTune(user);
+      await setTire(user, "Tires on the truck", "315/75R16");
+
+      await user.click(moduleToggle("Tires"));
+
+      expect(screen.queryByRole("group", { name: "Tires on the truck" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Set shift points for these tires" }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(moduleCard("Tires")).getByText(
+          "315/75R16 · 34.60 in · calibrated for 235/85R16 · speedometer × 1.0906",
+        ),
+      ).toBeInTheDocument();
+
+      await user.click(moduleToggle("Tires"));
+
+      const fitted = tireGroup("Tires on the truck");
+      expect(
+        fitted.getByRole("combobox", { name: "Tires on the truck 315/75R16" }),
+      ).toBeInTheDocument();
+      expect(fitted.getByRole("status", { name: "Diameter" })).toHaveTextContent("34.60 in");
+      expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("41.4");
+    });
+
+    it("collapses Shiftpoints to the wide-open and closed-throttle points, and expands it back to the fields", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await openTune(user);
+      const closedShiftPoint = curveInput("3→4 (overdrive)", "0%", "shift point");
+      await user.clear(closedShiftPoint);
+      await user.type(closedShiftPoint, "40");
+
+      await user.click(moduleToggle("Shiftpoints"));
+
+      expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("textbox", { name: /shift point \(mph\)/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(moduleCard("Shiftpoints")).getByText(
+          "1→2 27–7 · 2→3 43–18 · 3→4 64.5–40 · 2→1 21–5.5 · 3→2 37–17.5 · 4→3 63–36 · 1 changed",
+        ),
+      ).toBeInTheDocument();
+
+      await user.click(moduleToggle("Shiftpoints"));
+
+      expect(screen.getAllByRole("table")).toHaveLength(6);
+      expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("40.0");
+      expect(screen.getByText("was 38.0")).toBeInTheDocument();
+    });
+
+    it("collapses Idle to the warm idle, and expands it back to the field with the idle in it", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await openTune(user);
+
+      await user.click(moduleToggle("Idle"));
+
+      expect(screen.queryByRole("textbox", { name: "Warm idle (rpm)" })).not.toBeInTheDocument();
+      expect(within(moduleCard("Idle")).getByText("680 rpm")).toBeInTheDocument();
+
+      await user.click(moduleToggle("Idle"));
+      await editWarmIdle(user, "700");
+      await user.click(moduleToggle("Idle"));
+
+      expect(within(moduleCard("Idle")).getByText("700 rpm")).toBeInTheDocument();
+
+      await user.click(moduleToggle("Idle"));
+
+      expect(screen.getByRole("textbox", { name: "Warm idle (rpm)" })).toHaveValue("700");
+      expect(screen.getByText("was 680")).toBeInTheDocument();
+    });
+
+    it("keeps the alerts outside the modules, so collapsing a module hides none", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await user.upload(screen.getByLabelText(/drop a file here/i), hcfFile());
+      const needsSerial = await screen.findByText(/Enter the chip serial to open tune\.hcf/);
+      expect(needsSerial.closest('[data-slot="card"]')).toBeNull();
+
+      await user.click(moduleToggle("Chip"));
+      await user.click(moduleToggle("Base Tune"));
+
+      expect(screen.getByText(/Enter the chip serial to open tune\.hcf/)).toBeVisible();
+
+      await user.click(moduleToggle("Chip"));
+      await user.type(screen.getByLabelText("Chip serial"), SERIAL);
+      await user.click(moduleToggle("Chip"));
+
+      expect(
+        await within(moduleCard("Base Tune")).findByText("tune.hcf · Hydra .hcf"),
+      ).toBeVisible();
+      expect(screen.queryByText(/Enter the chip serial/)).not.toBeInTheDocument();
+    });
   });
 });

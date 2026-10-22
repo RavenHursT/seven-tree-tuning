@@ -120,7 +120,7 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
   }
 
   function resetAll() {
-    confirmDiscard("Reset all changes puts every value back to the starting tune.", () =>
+    confirmDiscard("Reset all changes puts every value back to the base tune.", () =>
       dispatch({ type: "allReset" }),
     );
   }

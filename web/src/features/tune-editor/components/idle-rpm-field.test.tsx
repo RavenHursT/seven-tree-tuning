@@ -30,21 +30,20 @@ function getField(): HTMLInputElement {
 }
 
 describe("IdleRpmField warm idle", () => {
-  it("shows the Idle card with the warm idle in a field", () => {
+  it("shows the warm idle in a field, with its unit", () => {
     render(<Harness initial={680} />);
 
-    expect(screen.getByText("Idle")).toBeInTheDocument();
     expect(getField()).toHaveValue("680");
     expect(screen.getByText("rpm")).toBeInTheDocument();
   });
 
-  it("titles the card with a real h2 element inside the card title", () => {
-    render(<Harness initial={680} />);
+  it("draws no card and no heading of its own: the Idle module around it provides both", () => {
+    const { container } = render(<Harness initial={680} />);
 
-    const heading = screen.getByRole("heading", { level: 2, name: "Idle" });
-
-    expect(heading.tagName).toBe("H2");
-    expect(heading.closest("[data-slot=card-title]")).not.toBeNull();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.queryByText("Idle")).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="card"]')).toBeNull();
+    expect(container.querySelector('[data-slot="card-title"]')).toBeNull();
   });
 
   it.each([

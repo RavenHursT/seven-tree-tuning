@@ -15,3 +15,6 @@ __pycache__/
 # Claude Code worktrees and machine-local settings
 /.claude/worktrees/
 /.claude/settings.local.json
+
+# Data that Ruflo's hooks write while agents work
+/.claude-flow/

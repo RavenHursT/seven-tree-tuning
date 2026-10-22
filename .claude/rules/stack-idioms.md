@@ -78,6 +78,9 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   region that is inserted together with its text.
 - A sticky bar at the bottom of the window needs `scroll-padding-bottom` on `html`, so a focused
   field is never scrolled under it.
+- Radix `CollapsibleContent` unmounts its children while it is closed. Keep every edited value in
+  the reducer, not only in a field, so a module opens again with its values. The collapse tests in
+  `tune-editor.test.tsx` check this for each module.
 
 ## Tests
 
@@ -111,6 +114,8 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   treats any call named `use` as a hook.
 - In the Chromium e2e run, delete `window.showSaveFilePicker` with `page.addInitScript` so Generate
   Tune takes the download path; headless runs cannot drive the native save dialog.
+- The e2e test "fits each shift curve table in its card" fails when a curve table scrolls sideways
+  in the 1280 px test window. Run it after any change to the curve table layout or field widths.
 
 ## Structure
 
@@ -121,6 +126,10 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   - `sections/` connect the editor state to the components.
   - `state/` holds a pure reducer, selectors, and the file decode and build functions.
 - Server-only code lives in `web/src/features/library` and `web/src/app/api`.
+- The page is a set of collapsible modules (`CollapsibleModule`). A value that is set belongs inside
+  its module and in the module's collapsed summary; the open tune shows in Base Tune.
+- `TuneStatus` (loading messages and alerts) sits outside every module, so collapsing a module
+  never hides an alert.
 
 ## Hydra domain rules
 

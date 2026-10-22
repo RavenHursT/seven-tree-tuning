@@ -20,9 +20,9 @@ function CurveSection({ title, curves }: CurveSectionProps) {
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="text-sm font-medium">
+      <h3 id={headingId} className="text-sm font-medium">
         {title}
-      </h2>
+      </h3>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         {curves.map((curve) => (
           <ShiftCurveTable key={curve.curveId} {...curve} />
