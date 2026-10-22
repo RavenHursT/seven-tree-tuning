@@ -145,6 +145,22 @@ describe("tune editor", () => {
     expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("36.5");
   });
 
+  it("ignores an implausible tire width while it is being typed", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+    const width = within(screen.getByRole("group", { name: "Tires on the truck" })).getByLabelText(
+      "Width (mm)",
+    );
+
+    await user.clear(width);
+    await user.type(width, "31");
+
+    // A 31 mm tire would make every speedometer value a fraction of the shift point.
+    expect(screen.getByText("Enter a number from 100 to 500.")).toBeInTheDocument();
+    expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("38.0");
+  });
+
   it("moves the speedometer value one stored step per arrow key", async () => {
     const user = userEvent.setup();
     renderEditor();

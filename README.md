@@ -259,17 +259,22 @@ serial shows "The chip serial does not match this file."
   calibration diameter ÷ fitted diameter. With LT265/75R16 as the calibration size and 315/75R16
   fitted, the five `REVD-DOWNSHIFTCHG` tunes become the shipped `-TIRECOMP-UPDOWN` tunes, byte for
   byte. With the default LT235/85R16, 12 to 18 shift points per tune land 0.5 mph higher.
-- **Possible gear hunting:** a throttle range where a downshift speed is at or above its matching
-  upshift. The six curves and the check are described in [Shift schedule](#shift-schedule).
+- **Possible gear hunting:** a throttle range where a downshift speed is above its matching upshift.
+  Equal speeds are not flagged, because Power Hungry's own library has them. The six curves are
+  described in [Shift schedule](#shift-schedule).
 - **Warm idle:** the rpm of the first two points of the idle curve, stored as rpm × 4 at `0x124a6` and
   `0x124aa`. The editor shows the other idle-curve points and does not change them.
 
-The editor changes only those 60 shift-speed bytes and 4 idle bytes. It refuses to write any other
-byte.
+In the PCM image, the editor changes only those 60 shift-speed bytes and 4 idle bytes, and it
+refuses to write any other byte. A `.hcf` holds only the four 56 KiB banks, so the 8 KiB gaps
+between them always read back as `0xFF`. PHP's library files hold one byte in a gap (at `0x00000`),
+which a `.hcf` cannot carry.
 
 ### Privacy
 
 - Decryption and encryption run in the browser. The chip serial never goes to the server.
+- The page's Content-Security-Policy (`connect-src 'self'`) makes the browser refuse any request to
+  another site.
 - The server fetches only files named in Power Hungry's library index, through
   `/api/library/<file>`. The browser cannot fetch them directly, because PHP's site sends no CORS
   headers.

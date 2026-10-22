@@ -1,11 +1,10 @@
 "use client";
 
-import type { ContainerFormat } from "@seven-tree/hydra";
+import { isChipSerial, type ContainerFormat } from "@seven-tree/hydra";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 
-import { isValidChipSerial } from "../state/editor-selectors";
 import { useTuneEditor } from "../tune-editor-provider";
 
 const FORMAT_LABELS: Readonly<Record<ContainerFormat, string>> = {
@@ -18,7 +17,7 @@ const FORMAT_LABELS: Readonly<Record<ContainerFormat, string>> = {
 export function TuneStatus() {
   const { state } = useTuneEditor();
   const { loading, loadError, pendingFile, tune, chipSerial } = state;
-  const needsSerial = pendingFile !== null && loadError === null && !isValidChipSerial(chipSerial);
+  const needsSerial = pendingFile !== null && loadError === null && !isChipSerial(chipSerial);
 
   return (
     <div className="space-y-3" aria-live="polite">

@@ -1,8 +1,10 @@
 "use client";
 
+import { isChipSerial, normalizeChipSerial } from "@seven-tree/hydra";
 import { createContext, use, useReducer, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { libraryTuneApiPath, readLibraryApiError } from "@/features/library/api";
 import { chooseSaveTarget } from "@/lib/save-file";
 
 import { DiscardChangesDialog, type DiscardRequest } from "./components/discard-changes-dialog";
@@ -12,11 +14,7 @@ import {
   type EditorAction,
   type EditorState,
 } from "./state/editor-reducer";
-import {
-  isValidChipSerial,
-  selectChangeSummary,
-  selectGenerateDisabledReason,
-} from "./state/editor-selectors";
+import { selectChangeSummary, selectGenerateDisabledReason } from "./state/editor-selectors";
 import type { TuneSourceKind } from "./state/loaded-tune";
 import {
   buildTuneFile,
@@ -67,9 +65,9 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
 
   function setChipSerial(value: string) {
     dispatch({ type: "chipSerialChanged", value });
-    const serial = value.trim().toUpperCase();
+    const serial = normalizeChipSerial(value);
     const pending = state.pendingFile;
-    if (pending && isValidChipSerial(serial)) {
+    if (pending && isChipSerial(serial)) {
       openBytes(pending.bytes, pending.fileName, "upload", serial);
     }
   }
@@ -97,7 +95,7 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
     if (needsChipSerial(file.name)) {
       // Kept until it opens, so a missing or wrong serial can be fixed without picking it again.
       dispatch({ type: "pendingFileHeld", file: { fileName: file.name, bytes } });
-      if (!isValidChipSerial(state.chipSerial)) return;
+      if (!isChipSerial(state.chipSerial)) return;
     }
     openBytes(bytes, file.name, "upload", state.chipSerial);
   }
@@ -189,14 +187,10 @@ export function useTuneEditor(): TuneEditor {
 }
 
 async function downloadLibraryTune(fileName: string): Promise<Uint8Array> {
-  const response = await fetch(`/api/library/${encodeURIComponent(fileName)}`);
+  const response = await fetch(libraryTuneApiPath(fileName));
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => null);
-    const message =
-      body && typeof body === "object" && "error" in body && typeof body.error === "string"
-        ? body.error
-        : `the server answered HTTP ${response.status}.`;
-    throw new Error(message);
+    throw new Error(readLibraryApiError(body) ?? `the server answered HTTP ${response.status}.`);
   }
   return new Uint8Array(await response.arrayBuffer());
 }

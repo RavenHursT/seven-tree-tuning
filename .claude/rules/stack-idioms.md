@@ -10,8 +10,10 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   and `fsevents` here. Lint, tests and the build work without them.
 - Run `npm install` from the repo root only. The root `package.json` is an npm workspace for
   `packages/*` and `web`.
-- Bun is used only for `tools/` (`bun tools/hcf.ts`, `npm run build`). Bun resolves imports from the
-  script's folder, not from the current directory.
+- Bun runs and compiles `tools/` (`bun tools/hcf.ts`, `npm run build`). The tools import
+  `packages/hydra/src` by relative path, so they work in a checkout without `npm install`.
+  `packages/hydra/src/tools-import.test.ts` fails if a tool switches to the package name.
+- Bun resolves a script's imports from the script's folder, not from the current directory.
 
 ## Next.js 16.4
 
@@ -34,15 +36,22 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
 - `import "server-only"` needs no package: Next aliases it. Vitest does not, so mock it in tests:
   `vi.mock("server-only", () => ({}))` and `vi.mock("next/cache", () => ({ cacheLife: vi.fn() }))`.
 - A Server Component that renders a Phosphor icon imports it from `@phosphor-icons/react/ssr`.
+- `LayoutProps` and `RouteContext` come from types that Next generates. Type-check with
+  `next typegen && tsc --noEmit` (the `typecheck` script); plain `tsc` fails on a clean checkout.
+- Security headers go in `headers()` in `next.config.ts`. A policy with `connect-src 'self'` and no
+  `script-src` works with Next's inline scripts and blocks every request to another origin.
 
 ## React 19
 
 - Provide context with `<MyContext value={...}>` and read it with `use(MyContext)`.
 - The React Compiler is on. Do not add `useMemo` or `useCallback` for performance.
 - Use `useTransition` for async work after the user acts (the `.hcf` write).
-- Call `showSaveFilePicker` (through `chooseSaveTarget` in `web/src/lib/save-file.ts`) before any
-  other `await` in the click handler. The browser opens the save dialog only while the click still
-  counts as a user action.
+- Build the file first, then call `showSaveFilePicker` (through `chooseSaveTarget` in
+  `web/src/lib/save-file.ts`) before any other `await` in the click handler. The browser opens the
+  save dialog only while the click still counts as a user action. A failed write must call
+  `abort()` on the writable, or an empty file stays on disk.
+- Check a dropped file's name and size before `file.arrayBuffer()`. A drop is not filtered by the
+  input's `accept`, and a read can reject.
 
 ## shadcn/ui 4 and Tailwind CSS 4
 
@@ -57,6 +66,13 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
 - For a number that the user edits, use `inputMode="decimal"`, not `type="number"`. Keep the typed
   text while the field has focus, commit each valid number, and show the stored value again on blur.
   `NumberField` in `web/src/features/tune-editor/components` does this.
+- Do not unmount or natively disable a button that can have focus (Reset, Generate). Use
+  `aria-disabled="true"` and ignore clicks, or keyboard focus falls to `<body>`.
+- Give each repeated button its own accessible name ("Reset 3→4 (overdrive)").
+- Render a live region (`role="status"`) before its text arrives. Many screen readers ignore a live
+  region that is inserted together with its text.
+- A sticky bar at the bottom of the window needs `scroll-padding-bottom` on `html`, so a focused
+  field is never scrolled under it.
 
 ## Tests
 
@@ -74,8 +90,18 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
 - A `.hcf` carries only the four banks. The 8 KiB gaps at `0x00000`, `0x10000`, `0x20000` and
   `0x30000` always decode to `0xFF`. Compare an output with the decoded input, not with the raw
   fixture.
+- jest-dom's `toBeDisabled` checks only the `disabled` attribute. For an `aria-disabled` button,
+  assert `toHaveAttribute("aria-disabled", "true")`. Playwright's `toBeDisabled` checks both.
 - Install Playwright browsers with `PLAYWRIGHT_SKIP_BROWSER_GC=1`. Without it, `playwright install`
   deletes browser builds that other Playwright installs on the machine still use.
+- Playwright 1.64 loads the workspace package's TypeScript source, extension-less imports included.
+  Import `@seven-tree/hydra` and `@seven-tree/hydra/testing` in e2e tests directly.
+- In e2e tests, do not wait on React internals such as `__reactProps$` keys. React 19 keeps text
+  typed and files chosen before it attaches to server-rendered fields.
+- Name a Playwright fixture's callback parameter `provide`, not `use`. The React hooks lint rule
+  treats any call named `use` as a hook.
+- In the Chromium e2e run, delete `window.showSaveFilePicker` with `page.addInitScript` so Generate
+  Tune takes the download path; headless runs cannot drive the native save dialog.
 
 ## Structure
 
@@ -104,7 +130,8 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
 - Write tune changes only through `writeTuneValues`. It refuses any byte outside the 60 speed bytes
   and the 4 idle bytes.
 - Scale upshifts and downshifts together. Scaling only the upshifts made the truck hunt between
-  3rd and overdrive. `findShiftOverlaps` reports any throttle range where a downshift reaches its
-  upshift.
+  3rd and overdrive. `findShiftOverlaps` reports any throttle range where a downshift is above its
+  upshift. Equal speeds do not count: Power Hungry ships equal 1→2 and 2→1 speeds at light throttle
+  in 26 of its 35 TDE1 library tunes.
 - The server route fetches only names that are in Power Hungry's current index. Never build a URL
   from user input.

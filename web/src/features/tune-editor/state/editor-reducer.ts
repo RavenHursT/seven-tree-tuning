@@ -1,4 +1,5 @@
 import {
+  normalizeChipSerial,
   scaleShiftSpeeds,
   setShiftPointRaw,
   setWarmIdleRpm,
@@ -74,7 +75,7 @@ export function defaultOutputFileName(source: TuneSource): string {
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case "chipSerialChanged":
-      return { ...state, chipSerial: action.value.trim().toUpperCase() };
+      return { ...state, chipSerial: normalizeChipSerial(action.value) };
     case "fittedTireChanged":
       return { ...state, fittedTire: action.tire };
     case "calibrationTireChanged":

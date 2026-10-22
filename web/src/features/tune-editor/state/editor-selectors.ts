@@ -2,6 +2,7 @@ import {
   closedThrottleIndex,
   findShiftOverlaps,
   idleRawToRpm,
+  isChipSerial,
   shiftPointToSpeedoMph,
   speedometerFactor,
   speedRawToMph,
@@ -49,8 +50,6 @@ export interface TirePresetOption {
   readonly value: TireSize;
   readonly note?: string;
 }
-
-const CHIP_SERIAL = /^[0-9A-F]{8}$/;
 
 /** Speedometer mph = tune mph x this factor (fitted diameter / calibration diameter). */
 export function selectSpeedometerFactor(state: EditorState): number {
@@ -130,19 +129,15 @@ export function selectChangeSummary(state: EditorState): ChangeSummary {
 
 /** Field error for a chip serial as typed; undefined while empty or when valid. */
 export function selectChipSerialError(chipSerial: string): string | undefined {
-  if (chipSerial === "" || CHIP_SERIAL.test(chipSerial)) return undefined;
+  if (chipSerial === "" || isChipSerial(chipSerial)) return undefined;
   if (/[^0-9A-F]/.test(chipSerial)) return "Use only the digits 0–9 and letters A–F.";
   return "Enter all 8 hex digits.";
-}
-
-export function isValidChipSerial(chipSerial: string): boolean {
-  return CHIP_SERIAL.test(chipSerial);
 }
 
 /** Why "Generate Tune" is unavailable, or undefined when it is available. */
 export function selectGenerateDisabledReason(state: EditorState): string | undefined {
   if (!state.tune) return "Load a tune first.";
-  if (!isValidChipSerial(state.chipSerial)) return "Enter the 8-digit chip serial.";
+  if (!isChipSerial(state.chipSerial)) return "Enter the 8-digit chip serial.";
   if (state.outputFileName.trim() === "") return "Enter an output file name.";
   return undefined;
 }

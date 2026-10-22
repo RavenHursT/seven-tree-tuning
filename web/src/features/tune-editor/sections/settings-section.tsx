@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretDownIcon } from "@phosphor-icons/react";
-import { formatTireSize } from "@seven-tree/hydra";
+import { formatTireSize, TIRE_SIZE_LIMITS } from "@seven-tree/hydra";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +46,7 @@ export function SettingsSection() {
           value={state.fittedTire}
           diameterIn={diameters.fitted}
           presets={presets}
+          limits={TIRE_SIZE_LIMITS}
           onChange={(tire) => dispatch({ type: "fittedTireChanged", tire })}
         />
         <Collapsible>
@@ -63,6 +64,7 @@ export function SettingsSection() {
               value={state.calibrationTire}
               diameterIn={diameters.calibration}
               presets={presets}
+              limits={TIRE_SIZE_LIMITS}
               onChange={(tire) => dispatch({ type: "calibrationTireChanged", tire })}
             />
           </CollapsibleContent>
