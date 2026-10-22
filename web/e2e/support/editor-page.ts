@@ -101,12 +101,28 @@ export class EditorPage {
     return this.page.getByRole("group", { name: legend, exact: true });
   }
 
-  /** Types a tire size, then leaves the last field the way a person tabs on. */
-  async setTireSize(legend: string, widthMm: string, aspectPercent: string): Promise<void> {
+  /**
+   * Opens the Manual tab and types a size such as "315/75R16" or "35x12.50R17", then leaves the
+   * field the way a person tabs on.
+   */
+  async setTireSize(legend: string, size: string): Promise<void> {
     const group = this.tireGroup(legend);
-    await group.getByRole("textbox", { name: "Width (mm)", exact: true }).fill(widthMm);
-    const aspect = group.getByRole("textbox", { name: "Aspect (%)", exact: true });
-    await aspect.fill(aspectPercent);
-    await aspect.press("Tab");
+    await group.getByRole("tab", { name: "Manual tire size", exact: true }).click();
+    const input = group.getByRole("textbox", { name: "Tire size", exact: true });
+    await input.fill(size);
+    await input.press("Tab");
+  }
+
+  /**
+   * Opens the list of sizes on the Choose tab, types a search, and clicks the option with that
+   * exact name. The list opens in a layer outside the group, so the search and the option are
+   * found on the whole page.
+   */
+  async chooseTireSize(legend: string, search: string, option: string): Promise<void> {
+    const group = this.tireGroup(legend);
+    await group.getByRole("tab", { name: "Choose tire size", exact: true }).click();
+    await group.getByRole("combobox").click();
+    await this.page.getByRole("combobox", { name: "Search tire sizes", exact: true }).fill(search);
+    await this.page.getByRole("option", { name: option, exact: true }).click();
   }
 }

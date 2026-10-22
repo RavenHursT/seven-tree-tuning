@@ -7,12 +7,10 @@ import {
   speedometerFactor,
   speedRawToMph,
   throttleRawToPercent,
-  TIRE_PRESETS,
   tireDiameterIn,
   type IdlePoint,
   type ShiftCurveId,
   type ShiftKind,
-  type TireSize,
 } from "@seven-tree/hydra";
 
 import type { ShiftCurveRow } from "../components/shift-curve-table";
@@ -42,13 +40,6 @@ export interface IdleView {
   readonly originalRpm: number;
   readonly warning: string | undefined;
   readonly idleCurve: readonly IdlePoint[];
-}
-
-export interface TirePresetOption {
-  readonly id: string;
-  readonly label: string;
-  readonly value: TireSize;
-  readonly note?: string;
 }
 
 /** Speedometer mph = tune mph x this factor (fitted diameter / calibration diameter). */
@@ -159,15 +150,6 @@ export function selectIdleView(state: EditorState): IdleView | undefined {
     // The first two points are the warm idle; show them as edited.
     idleCurve: tune.idleCurve.map((point, index) => (index < 2 ? { ...point, rpm } : point)),
   };
-}
-
-export function selectTirePresetOptions(): TirePresetOption[] {
-  return TIRE_PRESETS.map((preset) => ({
-    id: preset.id,
-    label: preset.label,
-    value: preset.tire,
-    ...(preset.note === undefined ? {} : { note: preset.note }),
-  }));
 }
 
 export function selectTireDiameters(state: EditorState): { fitted: number; calibration: number } {

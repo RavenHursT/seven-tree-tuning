@@ -63,7 +63,7 @@ test.describe("tune editor", () => {
     const shiftPoint = editor.curveInput(UPSHIFT_3_4, CLOSED_THROTTLE, "shift point");
     const speedometer = editor.curveInput(UPSHIFT_3_4, CLOSED_THROTTLE, "speedometer");
 
-    await editor.setTireSize(FITTED_TIRES, "315", "75");
+    await editor.setTireSize(FITTED_TIRES, "315/75R16");
 
     await expect(editor.tireGroup(FITTED_TIRES).locator("output")).toHaveText("34.60 in");
     await expect(speedometer).toHaveValue("41.4");
@@ -76,6 +76,26 @@ test.describe("tune editor", () => {
     await expect(shiftPoint).toHaveValue("36.5");
     await expect(page.getByText("was 38.0", { exact: true })).toBeVisible();
     await expect(page.getByText("1 shift point changed", { exact: true })).toBeVisible();
+  });
+
+  test("chooses a tire size from the searchable list, flotation sizes included", async ({
+    editor,
+  }) => {
+    await editor.open();
+    await editor.openUpload(hcfUpload());
+    const speedometer = editor.curveInput(UPSHIFT_3_4, CLOSED_THROTTLE, "speedometer");
+    const diameter = editor.tireGroup(FITTED_TIRES).locator("output");
+
+    await editor.chooseTireSize(FITTED_TIRES, "315/75", "315/75R16");
+
+    await expect(diameter).toHaveText("34.60 in");
+    await expect(speedometer).toHaveValue("41.4");
+
+    // A flotation size names its diameter: 38.0 mph on the 31.73 in tires is 41.9 mph on 35 in.
+    await editor.chooseTireSize(FITTED_TIRES, "35x", "35x12.50R17");
+
+    await expect(diameter).toHaveText("35.00 in");
+    await expect(speedometer).toHaveValue("41.9");
   });
 
   test("saves a .hcf that has the new warm idle and no other change", async ({ page, editor }) => {

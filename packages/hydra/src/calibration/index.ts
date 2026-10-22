@@ -52,12 +52,12 @@ export {
   speedometerFactor,
   speedoMphToShiftPointRaw,
   STOCK_TIRE,
-  TIRE_PRESETS,
   TIRE_SIZE_LIMITS,
   tireCompensationFactor,
   tireDiameterIn,
 } from "./tire";
-export type { TirePreset, TireSize } from "./tire";
+export type { FlotationTireSize, MetricTireSize, TireChartEntry, TireSize } from "./tire";
+export { TIRE_CHART } from "./tire-chart";
 
 export { readIdleCurve } from "./idle";
 export type { IdlePoint } from "./idle";

@@ -5,8 +5,14 @@ import { describe, expect, it } from "vitest";
 import { editorReducer, initialEditorState, type EditorState } from "./editor-reducer";
 import { createLoadedTune, type TuneSource } from "./loaded-tune";
 
-const LT265_75R16: TireSize = { widthMm: 265, aspectRatio: 75, rimDiameterIn: 16 };
-const T315_75R16: TireSize = { widthMm: 315, aspectRatio: 75, rimDiameterIn: 16 };
+const LT265_75R16: TireSize = { kind: "metric", widthMm: 265, aspectRatio: 75, rimDiameterIn: 16 };
+const T315_75R16: TireSize = { kind: "metric", widthMm: 315, aspectRatio: 75, rimDiameterIn: 16 };
+const T35X12_50R17: TireSize = {
+  kind: "flotation",
+  diameterIn: 35,
+  widthIn: 12.5,
+  rimDiameterIn: 17,
+};
 const UPLOAD: TuneSource = {
   kind: "upload",
   fileName: "TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf",
@@ -35,7 +41,12 @@ describe("initial state", () => {
       loadError: null,
       pendingFile: null,
     });
-    expect(STOCK_TIRE).toEqual({ widthMm: 235, aspectRatio: 85, rimDiameterIn: 16 });
+    expect(STOCK_TIRE).toEqual({
+      kind: "metric",
+      widthMm: 235,
+      aspectRatio: 85,
+      rimDiameterIn: 16,
+    });
   });
 });
 
@@ -152,6 +163,18 @@ describe("editing shift points", () => {
     expect(speeds(next, "up-3-4")?.slice(5)).toEqual([76, 76, 76, 76, 76]);
   });
 
+  it("converts a speedometer value back through a flotation size, which names its diameter", () => {
+    const state = editorReducer(loadedState(), { type: "fittedTireChanged", tire: T35X12_50R17 });
+    const next = editorReducer(state, {
+      type: "speedometerChanged",
+      curveId: "up-3-4",
+      index: 5,
+      mph: 44,
+    });
+    // 44 mph on 35.0 in tires = 39.89 mph on 31.7283 in tires -> 80 raw (40.0 mph).
+    expect(speeds(next, "up-3-4")?.slice(5)).toEqual([80, 80, 80, 80, 80]);
+  });
+
   it("resets one curve without touching the others", () => {
     let state = editorReducer(loadedState(), {
       type: "shiftPointChanged",
@@ -217,6 +240,20 @@ describe("tire compensation", () => {
   });
 });
 
+describe("tire compensation with a flotation size", () => {
+  it("scales the original shift points by calibration / fitted diameter, 31.6496 / 35.0", () => {
+    let state = loadedState();
+    state = editorReducer(state, { type: "calibrationTireChanged", tire: LT265_75R16 });
+    state = editorReducer(state, { type: "fittedTireChanged", tire: T35X12_50R17 });
+
+    state = editorReducer(state, { type: "tireCompensationApplied" });
+
+    // 31.6496 / 35.0 = 0.90428. The 3->4 closed throttle 76 raw (38.0 mph) becomes 68.7, so 69.
+    expect(speeds(state, "up-3-4")?.slice(5)).toEqual([69, 69, 69, 69, 69]);
+    expect(speeds(state, "up-3-4")?.[0]).toBe(117);
+  });
+});
+
 describe("idle, tires and output name", () => {
   it("sets both warm-idle copies", () => {
     const state = editorReducer(loadedState(), { type: "warmIdleChanged", rpm: 700 });
@@ -230,6 +267,13 @@ describe("idle, tires and output name", () => {
     expect(state.fittedTire).toEqual(T315_75R16);
     expect(state.calibrationTire).toEqual(LT265_75R16);
     expect(state.values).toBe(loaded.values);
+  });
+
+  it("takes a flotation size for either tire", () => {
+    let state = editorReducer(loadedState(), { type: "fittedTireChanged", tire: T35X12_50R17 });
+    state = editorReducer(state, { type: "calibrationTireChanged", tire: T35X12_50R17 });
+    expect(state.fittedTire).toEqual(T35X12_50R17);
+    expect(state.calibrationTire).toEqual(T35X12_50R17);
   });
 
   it("stores the output file name as typed", () => {

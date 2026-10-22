@@ -1,4 +1,4 @@
-import { scaleShiftSpeeds, TIRE_PRESETS, type TireSize, type TuneValues } from "@seven-tree/hydra";
+import { scaleShiftSpeeds, type TireSize, type TuneValues } from "@seven-tree/hydra";
 import { buildTde1Image } from "@seven-tree/hydra/testing";
 import { describe, expect, it } from "vitest";
 
@@ -12,11 +12,16 @@ import {
   selectOverlapViews,
   selectSpeedometerFactor,
   selectTireDiameters,
-  selectTirePresetOptions,
 } from "./editor-selectors";
 import { createLoadedTune } from "./loaded-tune";
 
-const T315_75R16: TireSize = { widthMm: 315, aspectRatio: 75, rimDiameterIn: 16 };
+const T315_75R16: TireSize = { kind: "metric", widthMm: 315, aspectRatio: 75, rimDiameterIn: 16 };
+const T35X12_50R17: TireSize = {
+  kind: "flotation",
+  diameterIn: 35,
+  widthIn: 12.5,
+  rimDiameterIn: 17,
+};
 
 function loadedState(): EditorState {
   const tune = createLoadedTune(buildTde1Image(), {
@@ -56,6 +61,16 @@ describe("selectSpeedometerFactor", () => {
     });
     const diameter = (widthMm: number, aspect: number) => 16 + (2 * widthMm * aspect) / 100 / 25.4;
     expect(selectSpeedometerFactor(state)).toBeCloseTo(diameter(315, 75) / diameter(235, 85), 10);
+  });
+});
+
+describe("selectSpeedometerFactor with a flotation size", () => {
+  it("is the diameter the size names over the calibration diameter", () => {
+    const state = editorReducer(initialEditorState, {
+      type: "fittedTireChanged",
+      tire: T35X12_50R17,
+    });
+    expect(selectSpeedometerFactor(state)).toBeCloseTo(35 / 31.7283, 4);
   });
 });
 
@@ -224,15 +239,6 @@ describe("selectIdleView", () => {
 });
 
 describe("tire selectors", () => {
-  it("offers the library's tire presets", () => {
-    const options = selectTirePresetOptions();
-    expect(options.map((option) => option.id)).toEqual(TIRE_PRESETS.map((preset) => preset.id));
-    expect(options[0]).toMatchObject({
-      label: TIRE_PRESETS[0]?.label,
-      value: TIRE_PRESETS[0]?.tire,
-    });
-  });
-
   it("gives both tire diameters in inches", () => {
     const state = editorReducer(initialEditorState, {
       type: "fittedTireChanged",
@@ -241,5 +247,14 @@ describe("tire selectors", () => {
     const diameters = selectTireDiameters(state);
     expect(diameters.fitted).toBeCloseTo(34.6024, 4);
     expect(diameters.calibration).toBeCloseTo(31.7283, 4);
+  });
+
+  it("gives the diameter a flotation size names, exactly", () => {
+    const state = editorReducer(initialEditorState, {
+      type: "fittedTireChanged",
+      tire: T35X12_50R17,
+    });
+    expect(selectTireDiameters(state).fitted).toBe(35);
+    expect(selectTireDiameters(state).calibration).toBeCloseTo(31.7283, 4);
   });
 });

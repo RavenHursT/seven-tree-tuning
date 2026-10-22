@@ -1,7 +1,7 @@
 "use client";
 
 import { CaretDownIcon } from "@phosphor-icons/react";
-import { formatTireSize, TIRE_SIZE_LIMITS } from "@seven-tree/hydra";
+import { formatTireSize } from "@seven-tree/hydra";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,13 +13,17 @@ import {
   selectChipSerialError,
   selectSpeedometerFactor,
   selectTireDiameters,
-  selectTirePresetOptions,
 } from "../state/editor-selectors";
+import {
+  formatTireSizeValue,
+  parseTireSizeValue,
+  selectTireSizeOptions,
+} from "../state/tire-options";
 import { useTuneEditor } from "../tune-editor-provider";
 
 export function SettingsSection() {
   const { state, dispatch, setChipSerial, applyTireCompensation } = useTuneEditor();
-  const presets = selectTirePresetOptions();
+  const options = selectTireSizeOptions();
   const diameters = selectTireDiameters(state);
   const factor = selectSpeedometerFactor(state);
 
@@ -45,8 +49,9 @@ export function SettingsSection() {
           description="The 1996 F-350 came with LT235/85R16."
           value={state.fittedTire}
           diameterIn={diameters.fitted}
-          presets={presets}
-          limits={TIRE_SIZE_LIMITS}
+          options={options}
+          parse={parseTireSizeValue}
+          format={formatTireSizeValue}
           onChange={(tire) => dispatch({ type: "fittedTireChanged", tire })}
         />
         <Collapsible>
@@ -63,8 +68,9 @@ export function SettingsSection() {
               description="The PCM computes speed, and the tune's shift points, for this size. Keep the factory size unless the speedometer was recalibrated."
               value={state.calibrationTire}
               diameterIn={diameters.calibration}
-              presets={presets}
-              limits={TIRE_SIZE_LIMITS}
+              options={options}
+              parse={parseTireSizeValue}
+              format={formatTireSizeValue}
               onChange={(tire) => dispatch({ type: "calibrationTireChanged", tire })}
             />
           </CollapsibleContent>

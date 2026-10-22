@@ -150,8 +150,13 @@ const TUNE_NAMES = Object.keys(DOCUMENTED_SCHEDULES);
 const SHIPPED_TIRE_FACTOR = 0.9147;
 
 /** The reference and fitted tires the owner asked the tire compensation to convert between. */
-const REFERENCE_TIRE: TireSize = { widthMm: 265, aspectRatio: 75, rimDiameterIn: 16 };
-const FITTED_TIRE: TireSize = { widthMm: 315, aspectRatio: 75, rimDiameterIn: 16 };
+const REFERENCE_TIRE: TireSize = {
+  kind: "metric",
+  widthMm: 265,
+  aspectRatio: 75,
+  rimDiameterIn: 16,
+};
+const FITTED_TIRE: TireSize = { kind: "metric", widthMm: 315, aspectRatio: 75, rimDiameterIn: 16 };
 
 function readTune(name: string): Uint8Array {
   return new Uint8Array(readFileSync(`${tunesFolder}TDE1_30N_${name}.hcf`));
