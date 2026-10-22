@@ -128,7 +128,7 @@ export function selectChipSerialError(chipSerial: string): string | undefined {
 /** Why "Generate Tune" is unavailable, or undefined when it is available. */
 export function selectGenerateDisabledReason(state: EditorState): string | undefined {
   if (!state.tune) return "Load a tune first.";
-  if (!isChipSerial(state.chipSerial)) return "Enter the 8-digit chip serial.";
+  if (!isChipSerial(state.chipSerial)) return "Enter the 8-digit chip serial in Base Tune.";
   if (state.outputFileName.trim() === "") return "Enter an output file name.";
   return undefined;
 }

@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 
 import { BaseTuneModule } from "@/features/tune-editor/sections/base-tune-module";
-import { ChipModule } from "@/features/tune-editor/sections/chip-module";
 import { GenerateSection } from "@/features/tune-editor/sections/generate-section";
 import { IdleModule } from "@/features/tune-editor/sections/idle-module";
 import { LibraryTunes, LibraryTunesFallback } from "@/features/tune-editor/sections/library-tunes";
@@ -25,7 +24,6 @@ export default function TuneEditorPage() {
                 </Suspense>
               }
             />
-            <ChipModule />
             <TuneStatus />
             <IdleModule />
           </div>

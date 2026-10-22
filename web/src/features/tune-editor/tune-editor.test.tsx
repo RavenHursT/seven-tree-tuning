@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LibraryTuneOption } from "./components/library-tune-picker";
 import { BaseTuneModule } from "./sections/base-tune-module";
-import { ChipModule } from "./sections/chip-module";
 import { GenerateSection } from "./sections/generate-section";
 import { IdleModule } from "./sections/idle-module";
 import { LibrarySection } from "./sections/library-section";
@@ -56,7 +55,6 @@ function renderEditor(tunes: LibraryTuneOption[] = []) {
           <LibrarySection tunes={tunes} sourceUrl="https://gopowerhungry.com/pages/hydra-chip" />
         }
       />
-      <ChipModule />
       <TuneStatus />
       <IdleModule />
       <TiresModule />
@@ -373,7 +371,7 @@ describe("tune editor", () => {
     expect(changedOffsets(uploaded, image)).toEqual([0x124a6, 0x124aa]);
   });
 
-  it("loads a PHP library tune through the server route", async () => {
+  it("loads a PHP library tune through the server route, with no chip serial", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async () => new Response(efuBytes().slice(), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -382,16 +380,44 @@ describe("tune editor", () => {
     await user.click(screen.getByRole("tab", { name: "PHP public library" }));
     await user.click(screen.getByRole("option", { name: /Stock/ }));
 
+    // A PHP library .efu uses a fixed key, so it opens without the chip serial.
     expect(await screen.findByText(/^Editing/)).toHaveTextContent(
       "Editing VCAB0_02_0S.efu · PHP library .efu",
     );
     expect(fetchMock).toHaveBeenCalledWith("/api/library/VCAB0_02_0S.efu");
-    // aria-disabled keeps the button focusable; jest-dom's toBeDisabled checks only `disabled`.
-    expect(screen.getByRole("button", { name: "Generate Tune" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
+  });
+
+  it("asks for no chip serial on the library tab while a PHP tune is being chosen", async () => {
+    const user = userEvent.setup();
+    renderEditor([STOCK_OPTION]);
+
+    await user.click(screen.getByRole("tab", { name: "PHP public library" }));
+
+    expect(screen.getByRole("option", { name: /Stock/ })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Chip serial")).not.toBeInTheDocument();
+  });
+
+  it("asks for the chip serial on the library tab once a PHP tune is open, because Generate Tune writes a .hcf", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(efuBytes().slice(), { status: 200 })),
     );
-    expect(screen.getByText("Enter the 8-digit chip serial.")).toBeInTheDocument();
+    renderEditor([STOCK_OPTION]);
+    await user.click(screen.getByRole("tab", { name: "PHP public library" }));
+    await user.click(screen.getByRole("option", { name: /Stock/ }));
+    await screen.findByText(/^Editing/);
+    const generate = screen.getByRole("button", { name: "Generate Tune" });
+
+    // aria-disabled keeps the button focusable; jest-dom's toBeDisabled checks only `disabled`.
+    expect(generate).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("Enter the 8-digit chip serial in Base Tune.")).toBeInTheDocument();
+    const serial = within(moduleCard("Base Tune")).getByLabelText("Chip serial");
+    expect(serial).toHaveAccessibleDescription(/Generate Tune needs it to write the \.hcf/);
+
+    await user.type(serial, SERIAL);
+
+    expect(generate).not.toHaveAttribute("aria-disabled", "true");
   });
 
   it("shows the route's error when a library tune cannot be downloaded", async () => {
@@ -564,18 +590,22 @@ describe("page modules", () => {
       expect(screen.queryByText(/starting tune/i)).not.toBeInTheDocument();
     });
 
-    it("gives the chip serial its own Chip module, apart from the tires", () => {
+    it("puts the chip serial field on the upload tab of Base Tune, above the drop zone", () => {
       renderEditor();
+      const baseTune = within(moduleCard("Base Tune"));
+      const serial = baseTune.getByLabelText("Chip serial");
 
-      expect(within(moduleCard("Chip")).getByLabelText("Chip serial")).toBeInTheDocument();
+      expect(serial.compareDocumentPosition(baseTune.getByLabelText(/drop a file here/i))).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      expect(screen.queryByRole("heading", { level: 2, name: "Chip" })).not.toBeInTheDocument();
       expect(within(moduleCard("Tires")).queryByLabelText("Chip serial")).not.toBeInTheDocument();
-      expect(screen.queryByText("Chip and tires")).not.toBeInTheDocument();
     });
 
     it("opens every module at the start", () => {
       renderEditor();
 
-      for (const title of ["Base Tune", "Chip", "Idle", "Tires", "Shiftpoints"]) {
+      for (const title of ["Base Tune", "Idle", "Tires", "Shiftpoints"]) {
         expect(moduleToggle(title)).toHaveAttribute("aria-expanded", "true");
       }
     });
@@ -588,7 +618,7 @@ describe("page modules", () => {
       const headings = (level: number) =>
         screen.getAllByRole("heading", { level }).map((heading) => heading.textContent);
 
-      expect(headings(2)).toEqual(["Base Tune", "Chip", "Idle", "Tires", "Shiftpoints"]);
+      expect(headings(2)).toEqual(["Base Tune", "Idle", "Tires", "Shiftpoints"]);
       expect(headings(3)).toEqual(["Upshifts", "Downshifts"]);
       expect(headings(4)).toEqual([
         "1→2",
@@ -703,29 +733,37 @@ describe("page modules", () => {
   });
 
   describe("collapsing", () => {
-    it("collapses Base Tune to the file name and format, and expands it back to the source tabs", async () => {
+    it("collapses Base Tune to the file, its format and the chip serial, and expands it back to the source tabs", async () => {
       const user = userEvent.setup();
       renderEditor();
       await openTune(user);
+      const summary = `tune.hcf · Hydra .hcf · chip serial ${SERIAL}`;
 
       await user.click(moduleToggle("Base Tune"));
 
       expect(screen.queryByLabelText(/drop a file here/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Chip serial")).not.toBeInTheDocument();
       expect(screen.queryByRole("tab", { name: "Upload a file" })).not.toBeInTheDocument();
-      expect(
-        within(moduleCard("Base Tune")).getByText("tune.hcf · Hydra .hcf"),
-      ).toBeInTheDocument();
+      expect(within(moduleCard("Base Tune")).getByText(summary)).toBeInTheDocument();
       expect(screen.queryByText(/^Editing/)).not.toBeInTheDocument();
 
       await user.click(moduleToggle("Base Tune"));
 
       expect(screen.getByLabelText(/drop a file here/i)).toBeInTheDocument();
+      expect(screen.getByLabelText("Chip serial")).toHaveValue(SERIAL);
       expect(within(moduleCard("Base Tune")).getByText(/^Editing/)).toHaveTextContent(
         "Editing tune.hcf · Hydra .hcf",
       );
-      expect(
-        within(moduleCard("Base Tune")).queryByText("tune.hcf · Hydra .hcf"),
-      ).not.toBeInTheDocument();
+      expect(within(moduleCard("Base Tune")).queryByText(summary)).not.toBeInTheDocument();
+    });
+
+    it("leaves the chip serial out of the collapsed Base Tune while none is entered", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+
+      await user.click(moduleToggle("Base Tune"));
+
+      expect(within(moduleCard("Base Tune")).getByText("No tune loaded")).toBeInTheDocument();
     });
 
     it("shows the open tune inside the Base Tune module, not between the modules", async () => {
@@ -737,31 +775,6 @@ describe("page modules", () => {
 
       expect(editing.closest('[data-slot="card"]')).toBe(moduleCard("Base Tune"));
       expect(editing).toHaveTextContent("Editing tune.hcf · Hydra .hcf");
-    });
-
-    it("collapses Chip to the serial, and expands it back to the field with the serial in it", async () => {
-      const user = userEvent.setup();
-      renderEditor();
-      await user.type(screen.getByLabelText("Chip serial"), SERIAL);
-
-      await user.click(moduleToggle("Chip"));
-
-      expect(screen.queryByLabelText("Chip serial")).not.toBeInTheDocument();
-      expect(within(moduleCard("Chip")).getByText(SERIAL)).toBeInTheDocument();
-
-      await user.click(moduleToggle("Chip"));
-
-      expect(screen.getByLabelText("Chip serial")).toHaveValue(SERIAL);
-      expect(within(moduleCard("Chip")).queryByText(SERIAL)).not.toBeInTheDocument();
-    });
-
-    it("shows Not entered when the collapsed Chip module has no serial", async () => {
-      const user = userEvent.setup();
-      renderEditor();
-
-      await user.click(moduleToggle("Chip"));
-
-      expect(within(moduleCard("Chip")).getByText("Not entered")).toBeInTheDocument();
     });
 
     it("collapses Tires to the fitted tires and the speedometer factor, and expands it back to the fields", async () => {
@@ -848,17 +861,18 @@ describe("page modules", () => {
       const needsSerial = await screen.findByText(/Enter the chip serial to open tune\.hcf/);
       expect(needsSerial.closest('[data-slot="card"]')).toBeNull();
 
-      await user.click(moduleToggle("Chip"));
       await user.click(moduleToggle("Base Tune"));
 
       expect(screen.getByText(/Enter the chip serial to open tune\.hcf/)).toBeVisible();
 
-      await user.click(moduleToggle("Chip"));
+      await user.click(moduleToggle("Base Tune"));
       await user.type(screen.getByLabelText("Chip serial"), SERIAL);
-      await user.click(moduleToggle("Chip"));
+      await user.click(moduleToggle("Base Tune"));
 
       expect(
-        await within(moduleCard("Base Tune")).findByText("tune.hcf · Hydra .hcf"),
+        await within(moduleCard("Base Tune")).findByText(
+          `tune.hcf · Hydra .hcf · chip serial ${SERIAL}`,
+        ),
       ).toBeVisible();
       expect(screen.queryByText(/Enter the chip serial/)).not.toBeInTheDocument();
     });

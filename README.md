@@ -237,21 +237,24 @@ For a production build, run `npm run build:web`, then `npm start`.
 
 ### Use it
 
-1. Enter the chip serial in the **Chip** module: the first 8 characters of the chip's USB serial.
-   HydraFlash shows it in its status bar.
-2. Load a base tune in the **Base Tune** module. Upload a `.hcf`, a PHP library `.efu` or a
-   decrypted `.bin`, or pick one of the 35 TDE1 tunes in Power Hungry's public library.
-3. Enter the tires on the truck in the **Tires** module. The module stays disabled until a tune is
+1. Load a base tune in the **Base Tune** module:
+   - For one of your own tunes, enter the chip serial on the **Upload a file** tab, then upload a
+     `.hcf`, a PHP library `.efu` or a decrypted `.bin`. The serial is the first 8 characters of
+     the chip's USB serial. HydraFlash shows it in its status bar.
+   - For a public tune, pick one of the 35 TDE1 tunes on the **PHP public library** tab. A PHP
+     tune opens without the serial. The tab asks for the serial once the tune is open, because
+     **Generate Tune** writes a `.hcf`, and a `.hcf` is encrypted with the serial.
+2. Enter the tires on the truck in the **Tires** module. The module stays disabled until a tune is
    loaded. The default is the factory size, LT235/85R16.
-4. Edit any shift point or speedometer value in the **Shiftpoints** module. Each one updates the
+3. Edit any shift point or speedometer value in the **Shiftpoints** module. Each one updates the
    other as you type. The **?** button next to the title explains the two columns.
-5. Edit the warm idle in the **Idle** module.
-6. Click **Generate Tune** and save the `.hcf`. Load it into a chip position with HydraFlash.
+4. Edit the warm idle in the **Idle** module.
+5. Click **Generate Tune** and save the `.hcf`. Load it into a chip position with HydraFlash.
 
 All modules are open when the page loads. Click the title of a module to collapse it to a smaller
-card that shows only the values that are set, for example the serial or the tire size.
+card that shows only the values that are set, for example the tune and the serial, or the tire size.
 
-A `.hcf` picked before the serial is entered stays loaded and opens when the serial is valid. A wrong
+A `.hcf` picked before the serial is entered is kept, and opens when the serial is valid. A wrong
 serial shows "The chip serial does not match this file."
 
 ### What the numbers mean

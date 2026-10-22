@@ -127,7 +127,8 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   - `state/` holds a pure reducer, selectors, and the file decode and build functions.
 - Server-only code lives in `web/src/features/library` and `web/src/app/api`.
 - The page is a set of collapsible modules (`CollapsibleModule`). A value that is set belongs inside
-  its module and in the module's collapsed summary; the open tune shows in Base Tune.
+  its module and in the module's collapsed summary; the open tune and the chip serial show in
+  Base Tune.
 - `TuneStatus` (loading messages and alerts) sits outside every module, so collapsing a module
   never hides an alert.
 
@@ -138,6 +139,9 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
 - Never commit decrypted images or Power Hungry's `.efu` files. Tests that need them read
   `HYDRA_EFU_DIR`.
 - A decrypted `.hcf` ends in `08` × 8. Any other trailer means the serial is wrong.
+- A PHP library `.efu` opens without the chip serial, because it uses a fixed key. Generate Tune
+  always writes a `.hcf`, so it always needs the serial. Base Tune shows the serial field on the
+  upload tab, and on the library tab only once a PHP tune is open.
 - The six TDE1 shift curves start at `0x14521`, `0x14579`, `0x145d1` (upshifts) and `0x145f9`,
   `0x14621`, `0x14649` (downshifts). Breakpoint `i` has its throttle byte at `offset - 1 + 2i` and its
   speed byte (mph × 2) at `offset + 2i`.

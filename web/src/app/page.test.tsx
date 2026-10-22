@@ -25,13 +25,12 @@ function alertsRegion(column: HTMLElement): Element | null {
 }
 
 describe("TuneEditorPage layout", () => {
-  it("stacks Base Tune, Chip, the alerts and Idle in the left column, in that order", () => {
+  it("stacks Base Tune, the alerts and Idle in the left column, in that order", () => {
     render(<TuneEditorPage />);
     const column = moduleCard("Base Tune").parentElement as HTMLElement;
 
     expect(Array.from(column.children)).toEqual([
       moduleCard("Base Tune"),
-      moduleCard("Chip"),
       alertsRegion(column),
       moduleCard("Idle"),
     ]);
@@ -64,10 +63,10 @@ describe("TuneEditorPage layout", () => {
     expect(screen.getByRole("button", { name: "Generate Tune" })).toBeInTheDocument();
   });
 
-  it("shows the five modules open, with Base Tune on the upload tab", () => {
+  it("shows the four modules open, with Base Tune on the upload tab", () => {
     render(<TuneEditorPage />);
 
-    for (const title of ["Base Tune", "Chip", "Idle", "Tires", "Shiftpoints"]) {
+    for (const title of ["Base Tune", "Idle", "Tires", "Shiftpoints"]) {
       expect(screen.getByRole("button", { name: title })).toHaveAttribute("aria-expanded", "true");
     }
     expect(screen.getByRole("tab", { name: "Upload a file" })).toHaveAttribute(

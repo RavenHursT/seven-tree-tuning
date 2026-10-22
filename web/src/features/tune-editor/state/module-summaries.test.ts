@@ -12,7 +12,6 @@ import { createLoadedTune } from "./loaded-tune";
 import {
   FORMAT_LABELS,
   summarizeBaseTune,
-  summarizeChip,
   summarizeIdle,
   summarizeShiftPoints,
   summarizeTires,
@@ -82,43 +81,43 @@ describe("summarizeBaseTune", () => {
   });
 });
 
-describe("summarizeChip", () => {
-  it("says Not entered while no serial is typed", () => {
-    expect(summarizeChip(initialEditorState)).toBe("Not entered");
+describe("summarizeBaseTune with a chip serial", () => {
+  it("adds the chip serial after the tune", () => {
+    const state = apply(loadedState(), { type: "chipSerialChanged", value: "0A1B2C3D" });
+
+    expect(summarizeBaseTune(state)).toBe(
+      "TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf · Hydra .hcf · chip serial 0A1B2C3D",
+    );
   });
 
-  it("shows the serial as entered", () => {
+  it("shows a serial entered before a tune is loaded", () => {
     const state = apply(initialEditorState, { type: "chipSerialChanged", value: "0A1B2C3D" });
 
-    expect(summarizeChip(state)).toBe("0A1B2C3D");
+    expect(summarizeBaseTune(state)).toBe("No tune loaded · chip serial 0A1B2C3D");
   });
 
   it("shows a serial that is only partly typed", () => {
     const state = apply(initialEditorState, { type: "chipSerialChanged", value: "0A1B" });
 
-    expect(summarizeChip(state)).toBe("0A1B");
+    expect(summarizeBaseTune(state)).toBe("No tune loaded · chip serial 0A1B");
   });
 
   it("shows the serial the way the editor keeps it, trimmed and in capitals", () => {
     const state = apply(initialEditorState, { type: "chipSerialChanged", value: " 0a1b2c3d " });
 
-    expect(summarizeChip(state)).toBe("0A1B2C3D");
+    expect(summarizeBaseTune(state)).toBe("No tune loaded · chip serial 0A1B2C3D");
   });
 
-  it("says Not entered again when the serial is cleared", () => {
+  it("leaves the serial out again when it is cleared", () => {
     const state = apply(
-      initialEditorState,
+      loadedState(),
       { type: "chipSerialChanged", value: "0A1B2C3D" },
       { type: "chipSerialChanged", value: "" },
     );
 
-    expect(summarizeChip(state)).toBe("Not entered");
-  });
-
-  it("does not depend on a loaded tune", () => {
-    const state = apply(loadedState(), { type: "chipSerialChanged", value: "0A1B2C3D" });
-
-    expect(summarizeChip(state)).toBe("0A1B2C3D");
+    expect(summarizeBaseTune(state)).toBe(
+      "TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf · Hydra .hcf",
+    );
   });
 });
 

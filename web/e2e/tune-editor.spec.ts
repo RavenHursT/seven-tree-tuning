@@ -177,7 +177,10 @@ test.describe("tune editor", () => {
     expect(() => assertOnlyEditableChanges(uploaded, saved)).not.toThrow();
   });
 
-  test("loads a tune from PHP's public library", async ({ page, editor }) => {
+  test("loads a tune from PHP's public library without the chip serial", async ({
+    page,
+    editor,
+  }) => {
     test.setTimeout(60_000);
     const requestedPaths: string[] = [];
     await page.route("**/api/library/*", async (route) => {
@@ -198,6 +201,8 @@ test.describe("tune editor", () => {
       !(await editor.libraryTunes.isVisible()),
       "PHP's tune list is unavailable to the server right now, so there is no tune to pick.",
     );
+    // A PHP tune opens without the serial, so the library tab does not ask for it.
+    await expect(editor.chipSerial).toHaveCount(0);
 
     await editor.libraryTunes.getByRole("option", { name: "Stock 0S", exact: true }).click();
 
@@ -205,9 +210,11 @@ test.describe("tune editor", () => {
     expect(requestedPaths).toEqual([`/api/library/${LIBRARY_FILE}`]);
     const shiftPoint = editor.curveInput(UPSHIFT_3_4, CLOSED_THROTTLE, "shift point");
     await expect(shiftPoint).toHaveValue(SHIFT_POINT_3_4_CLOSED);
-    // A library tune is not keyed to a chip, so saving waits for a serial.
+    // Generate Tune writes a .hcf, which is keyed to the chip, so the serial field shows now.
     await expect(editor.generateButton).toBeDisabled();
-    await expect(page.getByText("Enter the 8-digit chip serial.", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Enter the 8-digit chip serial in Base Tune.", { exact: true }),
+    ).toBeVisible();
     await editor.enterChipSerial();
     await expect(editor.generateButton).toBeEnabled();
   });

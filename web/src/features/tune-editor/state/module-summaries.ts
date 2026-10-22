@@ -27,16 +27,16 @@ function joinParts(parts: readonly string[]): string {
   return parts.join(SEPARATOR);
 }
 
-/** "TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf · Hydra .hcf" */
+/**
+ * "TDE1_30N_DAILYDRIVER-REVD-DOWNSHIFTCHG.hcf · Hydra .hcf · chip serial 0A1B2C3D": the open
+ * tune, then the serial as entered, even when it is only partly typed. No serial, no serial part.
+ */
 export function summarizeBaseTune(state: EditorState): string {
-  const { tune } = state;
-  if (!tune) return NO_TUNE;
-  return joinParts([tune.source.fileName, FORMAT_LABELS[tune.source.format]]);
-}
-
-/** The serial as entered, even when it is only partly typed. */
-export function summarizeChip(state: EditorState): string {
-  return state.chipSerial === "" ? "Not entered" : state.chipSerial;
+  const { tune, chipSerial } = state;
+  const tunePart = tune
+    ? joinParts([tune.source.fileName, FORMAT_LABELS[tune.source.format]])
+    : NO_TUNE;
+  return joinParts([tunePart, ...(chipSerial === "" ? [] : [`chip serial ${chipSerial}`])]);
 }
 
 /** "315/75R16 · 34.60 in · calibrated for 235/85R16 · speedometer × 1.0906" */

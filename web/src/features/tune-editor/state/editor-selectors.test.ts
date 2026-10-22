@@ -205,10 +205,10 @@ describe("selectGenerateDisabledReason", () => {
     expect(selectGenerateDisabledReason(initialEditorState)).toBe("Load a tune first.");
 
     let state = loadedState();
-    expect(selectGenerateDisabledReason(state)).toBe("Enter the 8-digit chip serial.");
+    expect(selectGenerateDisabledReason(state)).toBe("Enter the 8-digit chip serial in Base Tune.");
 
     state = editorReducer(state, { type: "chipSerialChanged", value: "0A1B2C3G" });
-    expect(selectGenerateDisabledReason(state)).toBe("Enter the 8-digit chip serial.");
+    expect(selectGenerateDisabledReason(state)).toBe("Enter the 8-digit chip serial in Base Tune.");
 
     state = editorReducer(state, { type: "chipSerialChanged", value: "0A1B2C3D" });
     state = editorReducer(state, { type: "outputFileNameChanged", value: "  " });
