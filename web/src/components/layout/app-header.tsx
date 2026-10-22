@@ -9,7 +9,7 @@ const REPOSITORY_URL = "https://github.com/RavenHursT/seven-tree-tuning";
 const LOGO_PROPS = {
   width: 824,
   height: 760,
-  sizes: "56px",
+  sizes: "80px",
   fetchPriority: "high",
 } as const;
 
@@ -19,13 +19,13 @@ function BrandLogo() {
       <Image
         src="/brand/seven-tree-logo.png"
         alt=""
-        className="h-12 w-auto shrink-0 dark:hidden"
+        className="h-18 w-auto shrink-0 dark:hidden"
         {...LOGO_PROPS}
       />
       <Image
         src="/brand/seven-tree-logo-dark.png"
         alt=""
-        className="hidden h-12 w-auto shrink-0 dark:block"
+        className="hidden h-18 w-auto shrink-0 dark:block"
         {...LOGO_PROPS}
       />
     </>
@@ -34,11 +34,11 @@ function BrandLogo() {
 
 function AppTitle() {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <h1 className="truncate font-heading text-sm font-semibold sm:text-base">
+    <div className="flex min-w-0 flex-col gap-1">
+      <h1 className="font-heading text-lg leading-tight font-semibold sm:truncate sm:text-2xl">
         Seven-Tree Tune Editor
       </h1>
-      <p className="truncate text-xs text-muted-foreground">
+      <p className="truncate text-sm text-muted-foreground sm:text-lg">
         Hydra chip tunes · 1996 F-350 7.3L · PCM TDE1
       </p>
     </div>
