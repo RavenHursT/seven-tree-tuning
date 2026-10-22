@@ -154,6 +154,59 @@ export function formatTireSize(tire: TireSize): string {
   return `${tire.widthMm}/${tire.aspectRatio}R${tire.rimDiameterIn}`;
 }
 
+/** The three numbers of a size, as the editor's Width, Height and Rim fields show them. */
+export interface TireSizeParts {
+  /** Section width: millimetres for a metric size ("315"), inches for a flotation size ("12.50"). */
+  readonly width: string;
+  /** Aspect ratio for a metric size ("75"), overall diameter in inches for a flotation size ("35"). */
+  readonly height: string;
+  /** Wheel diameter in inches ("16"). */
+  readonly rim: string;
+}
+
+/** "315", "75" and "16" for 315/75R16; "12.50", "35" and "17" for 35x12.50R17. */
+export function tireSizeParts(tire: TireSize): TireSizeParts {
+  if (tire.kind === "flotation") {
+    return {
+      width: formatWidthIn(tire.widthIn),
+      height: String(tire.diameterIn),
+      rim: String(tire.rimDiameterIn),
+    };
+  }
+  return {
+    width: String(tire.widthMm),
+    height: String(tire.aspectRatio),
+    rim: String(tire.rimDiameterIn),
+  };
+}
+
+/** Digits with at most one decimal point: "12.50", "12.5", "12." and ".5", and no sign or exponent. */
+const PART_PATTERN = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+
+function readPart(text: string): number | undefined {
+  const trimmed = text.trim();
+  return PART_PATTERN.test(trimmed) ? Number(trimmed) : undefined;
+}
+
+/**
+ * Reads the editor's Width, Height and Rim fields. A width of 100 or more is millimetres, so the
+ * size is metric and the height is its aspect ratio: 315, 75 and 16 make 315/75R16. A smaller
+ * width is inches, so the size is flotation and the height is its overall diameter: 12.50, 35 and
+ * 17 make 35x12.50R17. The two width ranges in `TIRE_SIZE_LIMITS` do not overlap. Returns
+ * undefined when a part is not a number, and for sizes outside `TIRE_SIZE_LIMITS`.
+ */
+export function tireSizeFromParts(parts: TireSizeParts): TireSize | undefined {
+  const width = readPart(parts.width);
+  const height = readPart(parts.height);
+  const rim = readPart(parts.rim);
+  if (width === undefined || height === undefined || rim === undefined) return undefined;
+  const tire: TireSize =
+    width >= TIRE_SIZE_LIMITS.metric.widthMm[0]
+      ? { kind: "metric", widthMm: width, aspectRatio: height, rimDiameterIn: rim }
+      : { kind: "flotation", diameterIn: height, widthIn: width, rimDiameterIn: rim };
+  return isPlausible(tire) ? tire : undefined;
+}
+
 /**
  * Overall diameter in inches. A metric size gives rim + 2 x width x aspect / 100 / 25.4. A
  * flotation size gives the diameter its name states.

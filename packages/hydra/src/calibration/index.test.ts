@@ -78,6 +78,8 @@ const PUBLIC_VALUES = [
   "throttleRawToPercent",
   "tireCompensationFactor",
   "tireDiameterIn",
+  "tireSizeFromParts",
+  "tireSizeParts",
   "writeTuneValues",
 ];
 

@@ -1,12 +1,13 @@
 import {
   formatTireSize,
-  parseTireSize,
   STOCK_TIRE,
   TIRE_CHART,
+  tireSizeFromParts,
+  tireSizeParts,
   type TireChartEntry,
 } from "@seven-tree/hydra";
 
-import type { TireSizeOption, TireSizeValue } from "../components/tire-size-fields";
+import type { TireSizeOption, TireSizeParts, TireSizeValue } from "../components/tire-size-fields";
 
 const FACTORY_GROUP = "Factory";
 
@@ -29,9 +30,14 @@ export function selectTireSizeOptions(): TireSizeOption[] {
   return TIRE_CHART.map(toOption);
 }
 
-/** Reads the text of a size, metric or flotation. Returns undefined when it is not a size. */
-export function parseTireSizeValue(text: string): TireSizeValue | undefined {
-  return parseTireSize(text);
+/** The Width, Height and Rim numbers of a size: "315", "75", "16" or "12.50", "35", "17". */
+export function tireSizeValueParts(value: TireSizeValue): TireSizeParts {
+  return tireSizeParts(value);
+}
+
+/** Reads the Width, Height and Rim numbers, metric or flotation. Undefined when not a size. */
+export function tireSizeValueFromParts(parts: TireSizeParts): TireSizeValue | undefined {
+  return tireSizeFromParts(parts);
 }
 
 /** The text of a size: "315/75R16" for a metric size, "35x12.50R17" for a flotation size. */

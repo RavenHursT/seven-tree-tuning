@@ -119,7 +119,7 @@ test.describe("tune editor", () => {
     const shiftPoint = editor.curveInput(UPSHIFT_3_4, CLOSED_THROTTLE, "shift point");
     const speedometer = editor.curveInput(UPSHIFT_3_4, CLOSED_THROTTLE, "speedometer");
 
-    await editor.setTireSize(FITTED_TIRES, "315/75R16");
+    await editor.setTireSize(FITTED_TIRES, ["315", "75", "16"]);
 
     await expect(editor.tireGroup(FITTED_TIRES).locator("output")).toHaveText("34.60 in");
     await expect(speedometer).toHaveValue("41.4");

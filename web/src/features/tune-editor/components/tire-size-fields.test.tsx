@@ -7,6 +7,7 @@ import {
   TireSizeFields,
   type TireSizeFieldsProps,
   type TireSizeOption,
+  type TireSizeParts,
   type TireSizeValue,
 } from "./tire-size-fields";
 
@@ -46,17 +47,33 @@ const OPTIONS: readonly TireSizeOption[] = [
   { id: "37x12.50R17", label: "37x12.50R17", group: "17 in rims", value: BIG_FLOATING },
 ];
 
-// The component takes parse and format as props, so these stand-ins keep the tests free of the
-// size rules: they know the sizes above and nothing else, in any letter case.
-const PARSED = new Map<string, TireSizeValue>([
-  ["235/85r16", FACTORY],
-  ["265/75r16", MEDIUM],
-  ["315/75r16", LARGE],
-  ["35x12.50r17", FLOATING],
-]);
+// The component takes toParts, fromParts and format as props, so these stand-ins keep the tests
+// free of the size rules: fromParts knows the sizes above and nothing else.
+const KNOWN_SIZES: readonly TireSizeValue[] = [FACTORY, MEDIUM, LARGE, FLOATING];
 
-function parse(text: string): TireSizeValue | undefined {
-  return PARSED.get(text.trim().toLowerCase());
+function toParts(value: TireSizeValue): TireSizeParts {
+  return value.kind === "metric"
+    ? {
+        width: String(value.widthMm),
+        height: String(value.aspectRatio),
+        rim: String(value.rimDiameterIn),
+      }
+    : {
+        width: value.widthIn.toFixed(2),
+        height: String(value.diameterIn),
+        rim: String(value.rimDiameterIn),
+      };
+}
+
+/** The three parts as numbers, so "12.5" matches "12.50"; an empty part matches nothing. */
+function numbersOf(parts: TireSizeParts): string {
+  return [parts.width, parts.height, parts.rim]
+    .map((part) => (part.trim() === "" ? "empty" : String(Number(part))))
+    .join("|");
+}
+
+function fromParts(parts: TireSizeParts): TireSizeValue | undefined {
+  return KNOWN_SIZES.find((size) => numbersOf(toParts(size)) === numbersOf(parts));
 }
 
 function format(value: TireSizeValue): string {
@@ -90,7 +107,8 @@ function Harness({
       value={value}
       diameterIn={diameterIn}
       options={OPTIONS}
-      parse={parse}
+      toParts={toParts}
+      fromParts={fromParts}
       format={format}
       disabled={disabled}
       onChange={(next) => {
@@ -111,7 +129,8 @@ function frozenProps(
     value,
     diameterIn: 31.73,
     options: OPTIONS,
-    parse,
+    toParts,
+    fromParts,
     format,
     onChange,
   };
@@ -145,9 +164,34 @@ function optionTexts(): string[] {
   return screen.queryAllByRole("option").map((option) => option.textContent ?? "");
 }
 
-async function openManual(user: User) {
+/** The examples below the Width, Height and Rim fields. */
+const EXAMPLES = "For 315/75R16, enter 315, 75 and 16. For 35x12.50R17, enter 12.50, 35 and 17.";
+const INVALID_MESSAGE = "These three numbers are not a tire size.";
+
+function manualFields() {
+  return {
+    width: screen.getByRole("textbox", { name: "Width" }),
+    height: screen.getByRole("textbox", { name: "Height" }),
+    rim: screen.getByRole("textbox", { name: "Rim" }),
+  };
+}
+
+type ManualFields = ReturnType<typeof manualFields>;
+
+/** Opens the Manual tab and returns its Width, Height and Rim fields. */
+async function openManual(user: User): Promise<ManualFields> {
   await user.click(screen.getByRole("tab", { name: "Manual tire size" }));
-  return screen.getByRole("textbox", { name: "Tire size" });
+  return manualFields();
+}
+
+/** Replaces the numbers in the given fields, one field after the other, as a person types them. */
+async function enterParts(user: User, fields: ManualFields, parts: Partial<TireSizeParts>) {
+  for (const name of ["width", "height", "rim"] as const) {
+    const text = parts[name];
+    if (text === undefined) continue;
+    await user.clear(fields[name]);
+    if (text !== "") await user.type(fields[name], text);
+  }
 }
 
 describe("TireSizeFields", () => {
@@ -186,7 +230,7 @@ describe("TireSizeFields", () => {
         "false",
       );
       expect(listButton()).toBeVisible();
-      expect(screen.queryByRole("textbox", { name: "Tire size" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("textbox", { name: "Width" })).not.toBeInTheDocument();
     });
 
     it("opens the Manual tab when the size is not one of the listed sizes", () => {
@@ -196,7 +240,12 @@ describe("TireSizeFields", () => {
         "aria-selected",
         "true",
       );
-      expect(screen.getByRole("textbox", { name: "Tire size" })).toHaveValue("245/75R16");
+      const { width, height, rim } = manualFields();
+      expect([width, height, rim].map((field) => (field as HTMLInputElement).value)).toEqual([
+        "245",
+        "75",
+        "16",
+      ]);
       expect(screen.queryByRole("combobox", LIST_BUTTON)).not.toBeInTheDocument();
     });
 
@@ -208,7 +257,7 @@ describe("TireSizeFields", () => {
 
       expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
       expect(screen.getByRole("tabpanel")).toContainElement(
-        screen.getByRole("textbox", { name: "Tire size" }),
+        screen.getByRole("group", { name: "Tire/Rim size" }),
       );
     });
 
@@ -237,7 +286,8 @@ describe("TireSizeFields", () => {
           legend="Tires on the truck"
           value={FACTORY}
           options={OPTIONS}
-          parse={parse}
+          toParts={toParts}
+          fromParts={fromParts}
           format={format}
           onChange={vi.fn()}
         />,
@@ -258,10 +308,12 @@ describe("TireSizeFields", () => {
       expect(listButton()).toBeDisabled();
     });
 
-    it("disables the text field when it is disabled and the Manual tab is open", () => {
+    it("disables the Width, Height and Rim fields when it is disabled and the Manual tab is open", () => {
       render(<Harness initial={UNLISTED} disabled />);
 
-      expect(screen.getByRole("textbox", { name: "Tire size" })).toBeDisabled();
+      for (const field of Object.values(manualFields())) {
+        expect(field).toBeDisabled();
+      }
       expect(screen.getByRole("tab", { name: "Choose tire size" })).toBeDisabled();
     });
 
@@ -508,12 +560,11 @@ describe("TireSizeFields", () => {
       expect(optionTexts()).toHaveLength(OPTIONS.length);
     });
 
-    it("shows on the Choose tab a size that was typed on the Manual tab", async () => {
+    it("shows on the Choose tab a size that was entered on the Manual tab", async () => {
       const user = userEvent.setup();
       render(<Harness />);
-      const input = await openManual(user);
-      await user.clear(input);
-      await user.type(input, "35x12.50R17");
+      const fields = await openManual(user);
+      await enterParts(user, fields, { width: "12.50", height: "35", rim: "17" });
 
       await user.click(screen.getByRole("tab", { name: "Choose tire size" }));
 
@@ -522,165 +573,173 @@ describe("TireSizeFields", () => {
   });
 
   describe("Manual tire size", () => {
-    it("has one labelled field with an example in its placeholder", async () => {
+    it("has a Tire/Rim size group with Width, Height and Rim fields, described by examples", async () => {
       const user = userEvent.setup();
       render(<Harness />);
+      const { width, height, rim } = await openManual(user);
 
-      const input = await openManual(user);
+      const group = screen.getByRole("group", { name: "Tire/Rim size" });
 
-      expect(input).toHaveAttribute("placeholder", "LT315/75R16 or 35x12.50R17");
-      expect(screen.getAllByRole("textbox")).toHaveLength(1);
+      expect(within(group).getAllByRole("textbox")).toEqual([width, height, rim]);
+      expect(screen.getAllByRole("textbox")).toHaveLength(3);
+      expect([width, height, rim].map((field) => field.getAttribute("placeholder"))).toEqual([
+        "315",
+        "75",
+        "16",
+      ]);
+      for (const field of [width, height, rim]) {
+        expect(field).toHaveAttribute("inputmode", "decimal");
+        expect(field).toHaveAccessibleDescription(EXAMPLES);
+      }
+      expect(screen.getByText(EXAMPLES)).toBeVisible();
     });
 
-    it("shows the current size as text when the field has no focus", async () => {
+    it("shows the current size in the three fields when they have no focus", async () => {
       const user = userEvent.setup();
       render(<Harness initial={LARGE} />);
 
-      expect(await openManual(user)).toHaveValue("315/75R16");
+      const { width, height, rim } = await openManual(user);
+
+      expect(width).toHaveValue("315");
+      expect(height).toHaveValue("75");
+      expect(rim).toHaveValue("16");
     });
 
-    it("shows a flotation size the way format writes it", async () => {
+    it("shows a flotation size as its width, its overall height and its rim", async () => {
       const user = userEvent.setup();
       render(<Harness initial={FLOATING} />);
 
-      expect(await openManual(user)).toHaveValue("35x12.50R17");
+      const { width, height, rim } = await openManual(user);
+
+      expect(width).toHaveValue("12.50");
+      expect(height).toHaveValue("35");
+      expect(rim).toHaveValue("17");
     });
 
-    it("reports a size on the keystroke that makes the text a size, and not before", async () => {
+    it("reports a size on the keystroke that makes the three numbers a size, and not before", async () => {
       const user = userEvent.setup();
       const onChange = renderFrozen();
-      const input = await openManual(user);
+      const fields = await openManual(user);
 
-      await user.clear(input);
-      await user.type(input, "315/75R16");
+      await enterParts(user, fields, { width: "315", height: "75" });
 
       expect(onChange).toHaveBeenCalledExactlyOnceWith(LARGE);
     });
 
-    it("reports a flotation size too", async () => {
+    it("reports a flotation size, whose height is its overall diameter", async () => {
       const user = userEvent.setup();
       const onChange = renderFrozen();
-      const input = await openManual(user);
+      const fields = await openManual(user);
 
-      await user.clear(input);
-      await user.paste("35x12.50R17");
+      await enterParts(user, fields, { width: "12.50", height: "35", rim: "17" });
 
       expect(onChange).toHaveBeenCalledExactlyOnceWith(FLOATING);
     });
 
-    it("reports a size when the text is written another way", async () => {
-      const user = userEvent.setup();
-      const onChange = renderFrozen();
-      const input = await openManual(user);
-
-      await user.clear(input);
-      await user.paste(" 315/75r16 ");
-
-      expect(onChange).toHaveBeenCalledExactlyOnceWith(LARGE);
-    });
-
-    it("keeps the text as typed while the field has focus", async () => {
+    it("keeps the numbers as typed while the focus moves between the three fields", async () => {
       const user = userEvent.setup();
       render(<Harness />);
-      const input = await openManual(user);
+      const fields = await openManual(user);
 
-      await user.clear(input);
-      await user.type(input, "315/75r16");
+      await enterParts(user, fields, { width: "12.5", height: "35", rim: "17" });
 
-      expect(input).toHaveValue("315/75r16");
+      expect(fields.width).toHaveValue("12.5");
+      expect(fields.height).toHaveValue("35");
+      expect(fields.rim).toHaveValue("17");
     });
 
-    it("shows the size in its standard form after the field loses focus", async () => {
+    it("shows the size in its standard form once the focus leaves the three fields", async () => {
       const user = userEvent.setup();
       render(<Harness />);
-      const input = await openManual(user);
+      const fields = await openManual(user);
+      await enterParts(user, fields, { width: "12.5", height: "35", rim: "17" });
 
-      await user.clear(input);
-      await user.type(input, "315/75r16");
-      await user.tab();
+      await user.click(document.body);
 
-      expect(input).toHaveValue("315/75R16");
+      expect(fields.width).toHaveValue("12.50");
     });
 
-    it("says what to enter and marks the field invalid while the text is not a size", async () => {
+    it("says what is wrong and marks the fields invalid while the three numbers are not a size", async () => {
       const user = userEvent.setup();
       const onChange = renderFrozen();
-      const input = await openManual(user);
+      const fields = await openManual(user);
 
-      await user.clear(input);
-      await user.type(input, "315/7");
+      await enterParts(user, fields, { width: "315", height: "7" });
 
       expect(onChange).not.toHaveBeenCalled();
-      expect(input).toBeInvalid();
-      expect(input).toHaveAccessibleDescription("Enter a size like 315/75R16 or 35x12.50R17.");
-      expect(screen.getByText("Enter a size like 315/75R16 or 35x12.50R17.")).toBeVisible();
+      for (const field of Object.values(fields)) {
+        expect(field).toBeInvalid();
+      }
+      expect(fields.width).toHaveAccessibleDescription(`${INVALID_MESSAGE} ${EXAMPLES}`);
+      expect(screen.getByText(INVALID_MESSAGE)).toBeVisible();
     });
 
-    it("removes the message and the mark when the text becomes a size", async () => {
+    it("removes the message and the marks when the numbers become a size", async () => {
       const user = userEvent.setup();
       render(<Harness />);
-      const input = await openManual(user);
+      const fields = await openManual(user);
+      await enterParts(user, fields, { width: "315", height: "7" });
+      expect(fields.height).toBeInvalid();
 
-      await user.clear(input);
-      await user.type(input, "315/75R1");
-      expect(input).toBeInvalid();
+      await user.type(fields.height, "5");
 
-      await user.type(input, "6");
-
-      expect(input).toBeValid();
-      expect(input).not.toHaveAccessibleDescription();
-      expect(screen.queryByText(/^Enter a size like/)).not.toBeInTheDocument();
+      for (const field of Object.values(fields)) {
+        expect(field).toBeValid();
+      }
+      expect(fields.width).toHaveAccessibleDescription(EXAMPLES);
+      expect(screen.queryByText(INVALID_MESSAGE)).not.toBeInTheDocument();
     });
 
-    it("keeps the last size it reported while the text is not a size", async () => {
+    it("keeps the last size it reported while the numbers are not a size", async () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
       render(<Harness onChange={onChange} />);
-      const input = await openManual(user);
+      const fields = await openManual(user);
 
-      await user.clear(input);
-      await user.type(input, "315/75R16");
-      await user.type(input, "0");
+      await enterParts(user, fields, { width: "315", height: "75" });
+      await user.type(fields.rim, "0");
 
       expect(onChange).toHaveBeenCalledExactlyOnceWith(LARGE);
-      expect(input).toBeInvalid();
+      expect(fields.rim).toBeInvalid();
     });
 
-    it("goes back to the current size when the field loses focus with text that is not a size", async () => {
+    it("goes back to the current size when the focus leaves with numbers that are not a size", async () => {
       const user = userEvent.setup();
       renderFrozen();
-      const input = await openManual(user);
+      const fields = await openManual(user);
+      await enterParts(user, fields, { width: "50" });
 
-      await user.clear(input);
-      await user.type(input, "abc");
-      await user.tab();
+      await user.click(document.body);
 
-      expect(input).toHaveValue("235/85R16");
-      expect(input).toBeValid();
-      expect(screen.queryByText(/^Enter a size like/)).not.toBeInTheDocument();
+      expect(fields.width).toHaveValue("235");
+      expect(fields.width).toBeValid();
+      expect(screen.queryByText(INVALID_MESSAGE)).not.toBeInTheDocument();
     });
 
-    it("does not mark an empty field invalid, and does not report it", async () => {
+    it("does not mark the fields invalid while one is empty, and does not report", async () => {
       const user = userEvent.setup();
       const onChange = renderFrozen();
-      const input = await openManual(user);
+      const fields = await openManual(user);
 
-      await user.clear(input);
+      await user.clear(fields.height);
 
       expect(onChange).not.toHaveBeenCalled();
-      expect(input).toBeValid();
-      expect(screen.queryByText(/^Enter a size like/)).not.toBeInTheDocument();
+      expect(fields.height).toBeValid();
+      expect(screen.queryByText(INVALID_MESSAGE)).not.toBeInTheDocument();
     });
 
-    it("shows a size set from outside when the field has no focus", async () => {
+    it("shows a size set from outside when the fields have no focus", async () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
       const { rerender } = render(<TireSizeFields {...frozenProps(FACTORY, onChange)} />);
-      expect(await openManual(user)).toHaveValue("235/85R16");
+      expect((await openManual(user)).width).toHaveValue("235");
 
       rerender(<TireSizeFields {...frozenProps(FLOATING, onChange)} />);
 
-      expect(screen.getByRole("textbox", { name: "Tire size" })).toHaveValue("35x12.50R17");
+      const { width, height, rim } = manualFields();
+      expect(width).toHaveValue("12.50");
+      expect(height).toHaveValue("35");
+      expect(rim).toHaveValue("17");
     });
   });
 });

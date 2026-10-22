@@ -39,6 +39,15 @@ export interface TireSizeOption {
   value: TireSizeValue;
 }
 
+/** The numbers in the Width, Height and Rim fields of the Manual tab, as typed. */
+export interface TireSizeParts {
+  /** Millimetres for a metric size, inches for a flotation size. */
+  width: string;
+  /** The aspect ratio of a metric size, the overall diameter of a flotation size. */
+  height: string;
+  rim: string;
+}
+
 export interface TireSizeFieldsProps {
   id: string;
   legend: string;
@@ -46,15 +55,25 @@ export interface TireSizeFieldsProps {
   value: TireSizeValue;
   diameterIn?: number;
   options: readonly TireSizeOption[];
-  /** Reads the text a person typed. Returns undefined when it is not a size. */
-  parse(text: string): TireSizeValue | undefined;
-  /** Writes a size as text, in the form `parse` reads. */
+  /** The Width, Height and Rim numbers of a size, as the Manual tab shows them. */
+  toParts(value: TireSizeValue): TireSizeParts;
+  /** Reads the Width, Height and Rim numbers. Returns undefined when they are not a size. */
+  fromParts(parts: TireSizeParts): TireSizeValue | undefined;
+  /** Writes a size as text, for the list button when the size is not one of the options. */
   format(value: TireSizeValue): string;
   onChange(next: TireSizeValue): void;
   disabled?: boolean;
 }
 
-const INVALID_SIZE_MESSAGE = "Enter a size like 315/75R16 or 35x12.50R17.";
+const PART_FIELDS: readonly { name: keyof TireSizeParts; label: string; placeholder: string }[] = [
+  { name: "width", label: "Width", placeholder: "315" },
+  { name: "height", label: "Height", placeholder: "75" },
+  { name: "rim", label: "Rim", placeholder: "16" },
+];
+
+const PARTS_EXAMPLES =
+  "For 315/75R16, enter 315, 75 and 16. For 35x12.50R17, enter 12.50, 35 and 17.";
+const INVALID_PARTS_MESSAGE = "These three numbers are not a tire size.";
 
 function isSameSize(a: TireSizeValue, b: TireSizeValue): boolean {
   if (a.kind === "flotation") {
@@ -123,22 +142,22 @@ function searchTexts(option: TireSizeOption): string[] {
 
 interface DiameterOutputProps {
   id: string;
-  /** The id of the control the diameter is computed from. */
-  inputId: string;
+  /** The ids of the controls the diameter is computed from, separated by spaces. */
+  inputIds: string;
   diameterIn: number | undefined;
 }
 
-function DiameterOutput({ id, inputId, diameterIn }: DiameterOutputProps) {
+function DiameterOutput({ id, inputIds, diameterIn }: DiameterOutputProps) {
   const labelId = `${id}-label`;
 
   return (
     <div className="flex flex-col gap-2">
-      <span id={labelId} className="text-xs leading-none">
+      <span id={labelId} className="text-xs leading-snug">
         Diameter
       </span>
       <output
         id={id}
-        htmlFor={inputId}
+        htmlFor={inputIds}
         aria-labelledby={labelId}
         aria-live="off"
         className="flex h-8 min-w-24 items-center justify-end bg-muted/50 px-2.5 text-xs font-medium tabular-nums"
@@ -288,56 +307,92 @@ function SizeCombobox({
   );
 }
 
-interface ManualSizeFieldProps {
+/** The ids of the Width, Height and Rim fields of the manual fields with this id. */
+function partFieldIds(id: string): string {
+  return PART_FIELDS.map(({ name }) => `${id}-${name}`).join(" ");
+}
+
+interface ManualSizePartsProps {
   id: string;
   value: TireSizeValue;
-  parse(text: string): TireSizeValue | undefined;
-  format(value: TireSizeValue): string;
+  toParts(value: TireSizeValue): TireSizeParts;
+  fromParts(parts: TireSizeParts): TireSizeValue | undefined;
   disabled: boolean;
+  /** The diameter output, shown in line with the three fields. */
+  diameter: React.ReactNode;
   onChange(next: TireSizeValue): void;
 }
 
 /**
- * A text field for a size. While it has focus it keeps the text as typed, and each text that
- * `parse` reads is reported. When it loses focus it shows the size in its standard form again.
+ * Width, Height and Rim fields for a size, under the label "Tire/Rim size". While the focus is in
+ * any of the three, they keep the numbers as typed, and each set of numbers that `fromParts` reads
+ * is reported. When the focus leaves all three, they show the size in use again.
  */
-function ManualSizeField({ id, value, parse, format, disabled, onChange }: ManualSizeFieldProps) {
-  const [draft, setDraft] = React.useState<string | null>(null);
+function ManualSizeParts({
+  id,
+  value,
+  toParts,
+  fromParts,
+  disabled,
+  diameter,
+  onChange,
+}: ManualSizePartsProps) {
+  const [draft, setDraft] = React.useState<TireSizeParts | null>(null);
+  const shown = draft ?? toParts(value);
+  const examplesId = `${id}-examples`;
   const errorId = `${id}-error`;
-  const invalid = draft !== null && draft.trim() !== "" && parse(draft) === undefined;
+  const filled = draft !== null && PART_FIELDS.every(({ name }) => draft[name].trim() !== "");
+  const invalid = filled && fromParts(shown) === undefined;
 
-  function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const text = event.target.value;
-    setDraft(text);
-    const parsed = parse(text);
-    if (parsed) onChange(parsed);
+  function handleChange(name: keyof TireSizeParts, text: string) {
+    const next = { ...shown, [name]: text };
+    setDraft(next);
+    const size = fromParts(next);
+    if (size) onChange(size);
+  }
+
+  function handleBlur(event: React.FocusEvent<HTMLFieldSetElement>) {
+    // Moving between the three fields keeps the numbers; leaving all three shows the size in use.
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraft(null);
   }
 
   return (
-    <Field data-invalid={invalid}>
-      <FieldLabel htmlFor={id}>Tire size</FieldLabel>
-      <Input
-        id={id}
-        placeholder="LT315/75R16 or 35x12.50R17"
-        autoComplete="off"
-        spellCheck={false}
-        disabled={disabled}
-        value={draft ?? format(value)}
-        aria-invalid={invalid}
-        aria-describedby={invalid ? errorId : undefined}
-        onChange={handleChange}
-        onBlur={() => setDraft(null)}
-      />
-      {invalid ? <FieldError id={errorId}>{INVALID_SIZE_MESSAGE}</FieldError> : null}
-    </Field>
+    <div className="flex flex-col gap-2">
+      <SizeRow align="end" diameter={diameter}>
+        <FieldSet className="gap-0" onBlur={handleBlur}>
+          <FieldLegend variant="label">Tire/Rim size</FieldLegend>
+          <div className="grid grid-cols-3 gap-2">
+            {PART_FIELDS.map(({ name, label, placeholder }) => (
+              <Field key={name} data-invalid={invalid}>
+                <FieldLabel htmlFor={`${id}-${name}`}>{label}</FieldLabel>
+                <Input
+                  id={`${id}-${name}`}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={placeholder}
+                  disabled={disabled}
+                  value={shown[name]}
+                  aria-invalid={invalid}
+                  aria-describedby={invalid ? `${errorId} ${examplesId}` : examplesId}
+                  onChange={(event) => handleChange(name, event.target.value)}
+                />
+              </Field>
+            ))}
+          </div>
+        </FieldSet>
+      </SizeRow>
+      <FieldDescription id={examplesId}>{PARTS_EXAMPLES}</FieldDescription>
+      {invalid ? <FieldError id={errorId}>{INVALID_PARTS_MESSAGE}</FieldError> : null}
+    </div>
   );
 }
 
 /**
  * The size of one set of tires, entered one of two ways: chosen from a searchable list of sizes
- * (Choose tire size), or typed as text (Manual tire size). Both ways show the overall diameter.
- * The list opens first when the size is one of its options, and the text field opens first when
- * it is not.
+ * (Choose tire size), or entered as its width, height and rim (Manual tire size). Both ways show
+ * the overall diameter. The list opens first when the size is one of its options, and the manual
+ * fields open first when it is not.
  */
 export function TireSizeFields({
   id,
@@ -346,7 +401,8 @@ export function TireSizeFields({
   value,
   diameterIn,
   options,
-  parse,
+  toParts,
+  fromParts,
   format,
   onChange,
   disabled = false,
@@ -374,7 +430,7 @@ export function TireSizeFields({
         <TabsContent value="choose">
           <SizeRow
             align="end"
-            diameter={<DiameterOutput id={diameterId} inputId={listId} diameterIn={diameterIn} />}
+            diameter={<DiameterOutput id={diameterId} inputIds={listId} diameterIn={diameterIn} />}
           >
             <SizeCombobox
               id={listId}
@@ -388,19 +444,21 @@ export function TireSizeFields({
           </SizeRow>
         </TabsContent>
         <TabsContent value="manual">
-          <SizeRow
-            align="start"
-            diameter={<DiameterOutput id={diameterId} inputId={manualId} diameterIn={diameterIn} />}
-          >
-            <ManualSizeField
-              id={manualId}
-              value={value}
-              parse={parse}
-              format={format}
-              disabled={disabled}
-              onChange={onChange}
-            />
-          </SizeRow>
+          <ManualSizeParts
+            id={manualId}
+            value={value}
+            toParts={toParts}
+            fromParts={fromParts}
+            disabled={disabled}
+            diameter={
+              <DiameterOutput
+                id={diameterId}
+                inputIds={partFieldIds(manualId)}
+                diameterIn={diameterIn}
+              />
+            }
+            onChange={onChange}
+          />
         </TabsContent>
       </Tabs>
     </FieldSet>

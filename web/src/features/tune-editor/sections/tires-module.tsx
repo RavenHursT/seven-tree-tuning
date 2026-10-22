@@ -12,8 +12,9 @@ import { selectSpeedometerFactor, selectTireDiameters } from "../state/editor-se
 import { summarizeTires } from "../state/module-summaries";
 import {
   formatTireSizeValue,
-  parseTireSizeValue,
   selectTireSizeOptions,
+  tireSizeValueFromParts,
+  tireSizeValueParts,
 } from "../state/tire-options";
 import { useTuneEditor } from "../tune-editor-provider";
 
@@ -57,7 +58,8 @@ function FittedTires() {
       value={state.fittedTire}
       diameterIn={selectTireDiameters(state).fitted}
       options={TIRE_SIZE_OPTIONS}
-      parse={parseTireSizeValue}
+      toParts={tireSizeValueParts}
+      fromParts={tireSizeValueFromParts}
       format={formatTireSizeValue}
       onChange={(tire) => dispatch({ type: "fittedTireChanged", tire })}
     />
@@ -83,7 +85,8 @@ function CalibrationTires() {
           value={state.calibrationTire}
           diameterIn={selectTireDiameters(state).calibration}
           options={TIRE_SIZE_OPTIONS}
-          parse={parseTireSizeValue}
+          toParts={tireSizeValueParts}
+          fromParts={tireSizeValueFromParts}
           format={formatTireSizeValue}
           onChange={(tire) => dispatch({ type: "calibrationTireChanged", tire })}
         />

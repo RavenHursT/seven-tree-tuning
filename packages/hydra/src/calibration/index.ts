@@ -55,8 +55,16 @@ export {
   TIRE_SIZE_LIMITS,
   tireCompensationFactor,
   tireDiameterIn,
+  tireSizeFromParts,
+  tireSizeParts,
 } from "./tire";
-export type { FlotationTireSize, MetricTireSize, TireChartEntry, TireSize } from "./tire";
+export type {
+  FlotationTireSize,
+  MetricTireSize,
+  TireChartEntry,
+  TireSize,
+  TireSizeParts,
+} from "./tire";
 export { TIRE_CHART } from "./tire-chart";
 
 export { readIdleCurve } from "./idle";

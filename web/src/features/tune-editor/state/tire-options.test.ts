@@ -1,7 +1,12 @@
-import { formatTireSize, parseTireSize, STOCK_TIRE, TIRE_CHART } from "@seven-tree/hydra";
+import { formatTireSize, STOCK_TIRE, TIRE_CHART } from "@seven-tree/hydra";
 import { describe, expect, it } from "vitest";
 
-import { formatTireSizeValue, parseTireSizeValue, selectTireSizeOptions } from "./tire-options";
+import {
+  formatTireSizeValue,
+  selectTireSizeOptions,
+  tireSizeValueFromParts,
+  tireSizeValueParts,
+} from "./tire-options";
 
 describe("selectTireSizeOptions", () => {
   const options = selectTireSizeOptions();
@@ -73,10 +78,19 @@ describe("selectTireSizeOptions", () => {
   });
 });
 
-describe("parseTireSizeValue", () => {
-  it("reads a metric size and a flotation size the way parseTireSize does", () => {
-    expect(parseTireSizeValue("LT315/75R16")).toEqual(parseTireSize("LT315/75R16"));
-    expect(parseTireSizeValue("35x12.50R17")).toEqual({
+describe("tireSizeValueParts", () => {
+  it("gives the Width, Height and Rim numbers of a metric size and a flotation size", () => {
+    expect(tireSizeValueParts(STOCK_TIRE)).toEqual({ width: "235", height: "85", rim: "16" });
+    expect(
+      tireSizeValueParts({ kind: "flotation", diameterIn: 35, widthIn: 12.5, rimDiameterIn: 17 }),
+    ).toEqual({ width: "12.50", height: "35", rim: "17" });
+  });
+});
+
+describe("tireSizeValueFromParts", () => {
+  it("reads a metric size and a flotation size from their Width, Height and Rim numbers", () => {
+    expect(tireSizeValueFromParts({ width: "235", height: "85", rim: "16" })).toEqual(STOCK_TIRE);
+    expect(tireSizeValueFromParts({ width: "12.50", height: "35", rim: "17" })).toEqual({
       kind: "flotation",
       diameterIn: 35,
       widthIn: 12.5,
@@ -84,10 +98,9 @@ describe("parseTireSizeValue", () => {
     });
   });
 
-  it("returns undefined for text that is not a size", () => {
-    expect(parseTireSizeValue("")).toBeUndefined();
-    expect(parseTireSizeValue("315/75")).toBeUndefined();
-    expect(parseTireSizeValue("501/75R16")).toBeUndefined();
+  it("returns undefined for numbers that are not a size", () => {
+    expect(tireSizeValueFromParts({ width: "", height: "85", rim: "16" })).toBeUndefined();
+    expect(tireSizeValueFromParts({ width: "501", height: "75", rim: "16" })).toBeUndefined();
   });
 });
 

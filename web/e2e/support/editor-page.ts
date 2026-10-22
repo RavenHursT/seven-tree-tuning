@@ -111,15 +111,25 @@ export class EditorPage {
   }
 
   /**
-   * Opens the Manual tab and types a size such as "315/75R16" or "35x12.50R17", then leaves the
-   * field the way a person tabs on.
+   * Opens the Manual tab and enters a size as its Width, Height and Rim, for example
+   * ["315", "75", "16"] for 315/75R16 or ["12.50", "35", "17"] for 35x12.50R17, then leaves the
+   * fields the way a person tabs on.
    */
-  async setTireSize(legend: string, size: string): Promise<void> {
+  async setTireSize(
+    legend: string,
+    [width, height, rim]: readonly [string, string, string],
+  ): Promise<void> {
     const group = this.tireGroup(legend);
     await group.getByRole("tab", { name: "Manual tire size", exact: true }).click();
-    const input = group.getByRole("textbox", { name: "Tire size", exact: true });
-    await input.fill(size);
-    await input.press("Tab");
+    const parts = [
+      ["Width", width],
+      ["Height", height],
+      ["Rim", rim],
+    ] as const;
+    for (const [name, text] of parts) {
+      await group.getByRole("textbox", { name, exact: true }).fill(text);
+    }
+    await group.getByRole("textbox", { name: "Rim", exact: true }).press("Tab");
   }
 
   /**

@@ -71,6 +71,9 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
 - For a number that the user edits, use `inputMode="decimal"`, not `type="number"`. Keep the typed
   text while the field has focus, commit each valid number, and show the stored value again on blur.
   `NumberField` in `web/src/features/tune-editor/components` does this.
+- Fields that together make one value (Width, Height and Rim) keep their typed text until the focus
+  leaves all of them. In the group's `onBlur`, reset only when
+  `event.currentTarget.contains(event.relatedTarget)` is false.
 - Do not unmount or natively disable a button that can have focus (Reset, Generate). Use
   `aria-disabled="true"` and ignore clicks, or keyboard focus falls to `<body>`.
 - Give each repeated button its own accessible name ("Reset 3→4 (overdrive)").
@@ -141,6 +144,9 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
 - Never commit decrypted images or Power Hungry's `.efu` files. Tests that need them read
   `HYDRA_EFU_DIR`.
 - A decrypted `.hcf` ends in `08` × 8. Any other trailer means the serial is wrong.
+- The Manual tire size tab takes Width, Height and Rim. `tireSizeFromParts` reads a width of 100 or
+  more as millimetres (metric, height = aspect ratio) and a smaller width as inches (flotation,
+  height = overall diameter). The two width ranges in `TIRE_SIZE_LIMITS` do not overlap.
 - A PHP library `.efu` opens without the chip serial, because it uses a fixed key. Generate Tune
   always writes a `.hcf`, so it always needs the serial. Base Tune shows the serial field on the
   upload tab, and on the library tab only once a PHP tune is open.

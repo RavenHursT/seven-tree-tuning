@@ -10,8 +10,11 @@ import {
   TIRE_SIZE_LIMITS,
   tireCompensationFactor,
   tireDiameterIn,
+  tireSizeFromParts,
+  tireSizeParts,
 } from "./tire";
-import type { FlotationTireSize, MetricTireSize, TireSize } from "./tire";
+import type { FlotationTireSize, MetricTireSize, TireSize, TireSizeParts } from "./tire";
+import { TIRE_CHART } from "./tire-chart";
 
 const LT235_85R16: MetricTireSize = {
   kind: "metric",
@@ -268,6 +271,61 @@ describe("formatTireSize", () => {
   it("round-trips the text a person types back to the same text", () => {
     for (const text of ["315/75R16", "35x12.50R17", "31x11R15", "38.5x14.50R17"]) {
       expect(formatTireSize(parseTireSize(text) as TireSize)).toBe(text);
+    }
+  });
+});
+
+describe("tireSizeParts", () => {
+  it("gives a metric size as its width in mm, its aspect ratio as the height, and its rim", () => {
+    expect(tireSizeParts(T315_75R16)).toEqual({ width: "315", height: "75", rim: "16" });
+  });
+
+  it("gives a flotation size as its width in inches, its overall diameter as the height, and its rim", () => {
+    expect(tireSizeParts(T35X12_50R17)).toEqual({ width: "12.50", height: "35", rim: "17" });
+  });
+
+  it("writes the width the way formatTireSize does, and keeps half inches", () => {
+    expect(tireSizeParts(flotation(31, 11, 15))).toEqual({ width: "11", height: "31", rim: "15" });
+    expect(tireSizeParts(flotation(38.5, 14.5, 16.5))).toEqual({
+      width: "14.50",
+      height: "38.5",
+      rim: "16.5",
+    });
+  });
+});
+
+describe("tireSizeFromParts", () => {
+  it("reads a width of 100 or more as millimetres, so the size is metric", () => {
+    expect(tireSizeFromParts({ width: "315", height: "75", rim: "16" })).toEqual(T315_75R16);
+  });
+
+  it("reads a smaller width as inches, so the size is flotation and the height is its diameter", () => {
+    expect(tireSizeFromParts({ width: "12.50", height: "35", rim: "17" })).toEqual(T35X12_50R17);
+  });
+
+  it("accepts spaces around a part, a width without its last zero, and a trailing point", () => {
+    expect(tireSizeFromParts({ width: " 12.5 ", height: "35.", rim: "17 " })).toEqual(T35X12_50R17);
+  });
+
+  it.each<[string, TireSizeParts]>([
+    ["an empty part", { width: "", height: "75", rim: "16" }],
+    ["a part that is not a number", { width: "315", height: "7a", rim: "16" }],
+    ["a negative part", { width: "315", height: "-75", rim: "16" }],
+    ["a number in exponent form", { width: "1e3", height: "75", rim: "16" }],
+    ["a metric aspect ratio above the largest", { width: "315", height: "175", rim: "16" }],
+    ["a flotation diameter below the smallest", { width: "12.50", height: "15", rim: "17" }],
+    [
+      "a width too wide for inches and too narrow for millimetres",
+      { width: "50", height: "75", rim: "16" },
+    ],
+    ["a rim above the largest", { width: "315", height: "75", rim: "60" }],
+  ])("returns undefined for %s", (_case, parts) => {
+    expect(tireSizeFromParts(parts)).toBeUndefined();
+  });
+
+  it("reads every size in the tire chart back from its parts", () => {
+    for (const entry of TIRE_CHART) {
+      expect(tireSizeFromParts(tireSizeParts(entry.tire)), entry.label).toEqual(entry.tire);
     }
   });
 });

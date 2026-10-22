@@ -68,13 +68,26 @@ function curveInput(title: string, throttle: string, column: "shift point" | "sp
   return screen.getByRole("textbox", { name: `${title}, ${throttle} throttle, ${column} (mph)` });
 }
 
-/** Types a size such as "315/75R16" or "35x12.50R17" on the Manual tab of a tire group. */
-async function setTire(user: ReturnType<typeof userEvent.setup>, group: string, size: string) {
+/**
+ * Enters a size on the Manual tab of a tire group as its Width, Height and Rim, for example
+ * ["315", "75", "16"] for 315/75R16 or ["12.50", "35", "17"] for 35x12.50R17, then leaves it.
+ */
+async function setTire(
+  user: ReturnType<typeof userEvent.setup>,
+  group: string,
+  [width, height, rim]: readonly [string, string, string],
+) {
   const fields = within(screen.getByRole("group", { name: group }));
   await user.click(fields.getByRole("tab", { name: "Manual tire size" }));
-  const input = fields.getByRole("textbox", { name: "Tire size" });
-  await user.clear(input);
-  await user.type(input, size);
+  for (const [name, text] of [
+    ["Width", width],
+    ["Height", height],
+    ["Rim", rim],
+  ] as const) {
+    const input = fields.getByRole("textbox", { name });
+    await user.clear(input);
+    await user.type(input, text);
+  }
   await user.tab();
 }
 
@@ -182,7 +195,7 @@ describe("tune editor", () => {
     renderEditor();
     await openTune(user);
 
-    await setTire(user, "Tires on the truck", "315/75R16");
+    await setTire(user, "Tires on the truck", ["315", "75", "16"]);
     expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("41.4");
 
     const speedometer = curveInput("3→4 (overdrive)", "0%", "speedometer");
@@ -221,7 +234,7 @@ describe("tune editor", () => {
     renderEditor();
     await openTune(user);
 
-    await setTire(user, "Tires on the truck", "35x12.50R17");
+    await setTire(user, "Tires on the truck", ["12.50", "35", "17"]);
 
     const fitted = within(screen.getByRole("group", { name: "Tires on the truck" }));
     expect(fitted.getByRole("status", { name: "Diameter" })).toHaveTextContent("35.00 in");
@@ -237,7 +250,7 @@ describe("tune editor", () => {
     expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("40.0");
   });
 
-  it("shows a flotation size chosen from the list in the Manual tab as typed", async () => {
+  it("shows a flotation size chosen from the list in the Manual tab as its width, height and rim", async () => {
     const user = userEvent.setup();
     renderEditor();
     await openTune(user);
@@ -247,37 +260,36 @@ describe("tune editor", () => {
     const fitted = within(screen.getByRole("group", { name: "Tires on the truck" }));
     expect(fitted.getByRole("status", { name: "Diameter" })).toHaveTextContent("35.00 in");
     await user.click(fitted.getByRole("tab", { name: "Manual tire size" }));
-    expect(fitted.getByRole("textbox", { name: "Tire size" })).toHaveValue("35x12.50R17");
+    expect(fitted.getByRole("textbox", { name: "Width" })).toHaveValue("12.50");
+    expect(fitted.getByRole("textbox", { name: "Height" })).toHaveValue("35");
+    expect(fitted.getByRole("textbox", { name: "Rim" })).toHaveValue("17");
   });
 
-  it("ignores an implausible tire size while it is being typed", async () => {
+  it("ignores an implausible tire size while it is being entered", async () => {
     const user = userEvent.setup();
     renderEditor();
     await openTune(user);
 
-    await setTire(user, "Tires on the truck", "031/75R16");
+    await setTire(user, "Tires on the truck", ["31", "75", "16"]);
 
-    // A 31 mm wide tire would make every speedometer value a fraction of the shift point.
+    // A width of 31 is too wide in inches and too narrow in millimetres, so it is no tire.
     expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("38.0");
-    const tireSize = within(screen.getByRole("group", { name: "Tires on the truck" })).getByRole(
-      "textbox",
-      { name: "Tire size" },
-    );
-    expect(tireSize).toHaveValue("235/85R16");
+    const fitted = within(screen.getByRole("group", { name: "Tires on the truck" }));
+    expect(fitted.getByRole("textbox", { name: "Width" })).toHaveValue("235");
   });
 
-  it("says what to enter while the tire size typed is not a size, and ignores it", async () => {
+  it("says what is wrong while the three numbers are not a size, and ignores them", async () => {
     const user = userEvent.setup();
     renderEditor();
     await openTune(user);
     const group = within(screen.getByRole("group", { name: "Tires on the truck" }));
     await user.click(group.getByRole("tab", { name: "Manual tire size" }));
-    const input = group.getByRole("textbox", { name: "Tire size" });
+    const width = group.getByRole("textbox", { name: "Width" });
 
-    await user.clear(input);
-    await user.type(input, "501/75R16");
+    await user.clear(width);
+    await user.type(width, "501");
 
-    expect(screen.getByText("Enter a size like 315/75R16 or 35x12.50R17.")).toBeInTheDocument();
+    expect(group.getByText("These three numbers are not a tire size.")).toBeInTheDocument();
     expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("38.0");
   });
 
@@ -285,7 +297,7 @@ describe("tune editor", () => {
     const user = userEvent.setup();
     renderEditor();
     await openTune(user);
-    await setTire(user, "Tires on the truck", "315/75R16");
+    await setTire(user, "Tires on the truck", ["315", "75", "16"]);
 
     await user.click(curveInput("3→4 (overdrive)", "0%", "speedometer"));
     await user.keyboard("{ArrowUp}");
@@ -314,8 +326,8 @@ describe("tune editor", () => {
     await openTune(user);
 
     await user.click(screen.getByRole("button", { name: /speedometer calibration/i }));
-    await setTire(user, "Tire size the speedometer is calibrated for", "265/75R16");
-    await setTire(user, "Tires on the truck", "315/75R16");
+    await setTire(user, "Tire size the speedometer is calibrated for", ["265", "75", "16"]);
+    await setTire(user, "Tires on the truck", ["315", "75", "16"]);
     await user.click(screen.getByRole("button", { name: "Set shift points for these tires" }));
 
     // The shipped -TIRECOMP-UPDOWN Daily Driver: 3→4 closed 38.0 -> 35.0, 4→3 closed 36.0 -> 33.0.
@@ -569,7 +581,7 @@ describe("unsaved changes", () => {
     const wot = curveInput("3→4 (overdrive)", "100%", "shift point");
     await user.clear(wot);
     await user.type(wot, "60");
-    await setTire(user, "Tires on the truck", "315/75R16");
+    await setTire(user, "Tires on the truck", ["315", "75", "16"]);
 
     await user.click(screen.getByRole("button", { name: "Set shift points for these tires" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Discard your changes?" });
@@ -805,7 +817,7 @@ describe("page modules", () => {
       const user = userEvent.setup();
       renderEditor();
       await openTune(user);
-      await setTire(user, "Tires on the truck", "315/75R16");
+      await setTire(user, "Tires on the truck", ["315", "75", "16"]);
 
       await user.click(moduleToggle("Tires"));
 
