@@ -122,14 +122,21 @@ describe("summarizeBaseTune with a chip serial", () => {
 });
 
 describe("summarizeTires", () => {
+  it("says no tune is loaded before one is, whatever tires are set", () => {
+    expect(summarizeTires(initialEditorState)).toBe("No tune loaded");
+    expect(
+      summarizeTires(apply(initialEditorState, { type: "fittedTireChanged", tire: T315_75R16 })),
+    ).toBe("No tune loaded");
+  });
+
   it("describes the factory tires on a speedometer calibrated for them", () => {
-    expect(summarizeTires(initialEditorState)).toBe(
+    expect(summarizeTires(loadedState())).toBe(
       "235/85R16 · 31.73 in · calibrated for 235/85R16 · speedometer × 1.0000",
     );
   });
 
   it("gives the fitted size, its diameter, the calibration size and the speedometer factor", () => {
-    const state = apply(initialEditorState, { type: "fittedTireChanged", tire: T315_75R16 });
+    const state = apply(loadedState(), { type: "fittedTireChanged", tire: T315_75R16 });
 
     expect(summarizeTires(state)).toBe(
       "315/75R16 · 34.60 in · calibrated for 235/85R16 · speedometer × 1.0906",
@@ -138,7 +145,7 @@ describe("summarizeTires", () => {
 
   it("names the calibration size when the speedometer was recalibrated", () => {
     const state = apply(
-      initialEditorState,
+      loadedState(),
       { type: "fittedTireChanged", tire: T315_75R16 },
       { type: "calibrationTireChanged", tire: T315_75R16 },
     );
@@ -150,21 +157,13 @@ describe("summarizeTires", () => {
 
   it("gives a factor below 1 when the fitted tires are smaller than the calibration tires", () => {
     const state = apply(
-      initialEditorState,
+      loadedState(),
       { type: "fittedTireChanged", tire: STOCK_TIRE },
       { type: "calibrationTireChanged", tire: T315_75R16 },
     );
 
     expect(summarizeTires(state)).toBe(
       "235/85R16 · 31.73 in · calibrated for 315/75R16 · speedometer × 0.9169",
-    );
-  });
-
-  it("gives the same text with a tune loaded", () => {
-    const state = apply(loadedState(), { type: "fittedTireChanged", tire: T315_75R16 });
-
-    expect(summarizeTires(state)).toBe(
-      "315/75R16 · 34.60 in · calibrated for 235/85R16 · speedometer × 1.0906",
     );
   });
 });

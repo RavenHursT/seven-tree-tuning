@@ -39,9 +39,13 @@ export function summarizeBaseTune(state: EditorState): string {
   return joinParts([tunePart, ...(chipSerial === "" ? [] : [`chip serial ${chipSerial}`])]);
 }
 
-/** "315/75R16 · 34.60 in · calibrated for 235/85R16 · speedometer × 1.0906" */
+/**
+ * "315/75R16 · 34.60 in · calibrated for 235/85R16 · speedometer × 1.0906". Before a tune is
+ * loaded the module shows no tires, so the summary says no tune is loaded, as Shiftpoints does.
+ */
 export function summarizeTires(state: EditorState): string {
-  const { fittedTire, calibrationTire } = state;
+  const { tune, fittedTire, calibrationTire } = state;
+  if (!tune) return NO_TUNE;
   return joinParts([
     formatTireSize(fittedTire),
     `${tireDiameterIn(fittedTire).toFixed(2)} in`,

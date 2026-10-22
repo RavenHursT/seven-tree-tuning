@@ -18,10 +18,6 @@ export interface CollapsibleModuleProps {
   summary: React.ReactNode;
   /** Whether the module starts open. The module keeps its own open state afterwards. */
   defaultOpen?: boolean;
-  /** Disables every native control in the content. The toggle button stays usable. */
-  disabled?: boolean;
-  /** Shown above the content while `disabled` is set, for example why it is disabled. */
-  disabledMessage?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }
@@ -36,8 +32,6 @@ export function CollapsibleModule({
   headingAction,
   summary,
   defaultOpen = true,
-  disabled = false,
-  disabledMessage,
   children,
   className,
 }: CollapsibleModuleProps) {
@@ -74,32 +68,9 @@ export function CollapsibleModule({
           )}
         </CardHeader>
         <CollapsibleContent>
-          <CardContent>
-            <ModuleContent disabled={disabled} message={disabledMessage}>
-              {children}
-            </ModuleContent>
-          </CardContent>
+          <CardContent>{children}</CardContent>
         </CollapsibleContent>
       </Collapsible>
     </Card>
-  );
-}
-
-interface ModuleContentProps {
-  disabled: boolean;
-  message: React.ReactNode;
-  children: React.ReactNode;
-}
-
-/** The content as is, or, when disabled, the message above a disabled fieldset around it. */
-function ModuleContent({ disabled, message, children }: ModuleContentProps) {
-  if (!disabled) return children;
-  return (
-    <>
-      {message ? <div className="mb-3 text-muted-foreground">{message}</div> : null}
-      <fieldset disabled className="m-0 min-w-0 border-0 p-0">
-        {children}
-      </fieldset>
-    </>
   );
 }

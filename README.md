@@ -244,8 +244,8 @@ For a production build, run `npm run build:web`, then `npm start`.
    - For a public tune, pick one of the 35 TDE1 tunes on the **PHP public library** tab. A PHP
      tune opens without the serial. The tab asks for the serial once the tune is open, because
      **Generate Tune** writes a `.hcf`, and a `.hcf` is encrypted with the serial.
-2. Enter the tires on the truck in the **Tires** module. The module stays disabled until a tune is
-   loaded. The default is the factory size, LT235/85R16. Pick a size from the list, or enter its
+2. Enter the tires on the truck in the **Tires** module. Its fields show once a tune is loaded.
+   The default is the factory size, LT235/85R16. Pick a size from the list, or enter its
    width, height and rim on the **Manual tire size** tab: 315, 75 and 16 for 315/75R16, or
    12.50, 35 and 17 for 35x12.50R17.
 3. Edit any shift point or speedometer value in the **Shiftpoints** module. Each one updates the

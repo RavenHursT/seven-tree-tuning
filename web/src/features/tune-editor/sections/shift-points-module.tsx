@@ -3,15 +3,9 @@
 import { GearSixIcon } from "@phosphor-icons/react";
 
 import { CollapsibleModule } from "@/components/layout/collapsible-module";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 
 import { HelpPopover } from "../components/help-popover";
+import { NoTuneNotice } from "../components/no-tune-notice";
 import type { ShiftCurveTableProps } from "../components/shift-curve-table";
 import { ShiftOverlapAlert } from "../components/shift-overlap-alert";
 import { ShiftSchedule } from "../components/shift-schedule";
@@ -42,24 +36,15 @@ export function ShiftPointsModule() {
       }
       summary={summarizeShiftPoints(state)}
     >
-      {state.tune ? <ShiftScheduleEditor /> : <NoTuneNotice />}
+      {state.tune ? (
+        <ShiftScheduleEditor />
+      ) : (
+        <NoTuneNotice
+          icon={<GearSixIcon />}
+          description="Upload a .hcf or pick a PHP library tune to see its shift points and idle speed."
+        />
+      )}
     </CollapsibleModule>
-  );
-}
-
-function NoTuneNotice() {
-  return (
-    <Empty className="border">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <GearSixIcon />
-        </EmptyMedia>
-        <EmptyTitle>No tune loaded</EmptyTitle>
-        <EmptyDescription>
-          Upload a .hcf or pick a PHP library tune to see its shift points and idle speed.
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
   );
 }
 

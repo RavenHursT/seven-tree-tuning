@@ -10,7 +10,7 @@ import { buildEfuFile, buildHcfFile, buildUploadedImage, CHIP_SERIAL } from "./s
 const UPLOAD_NAME = "synthetic-tune.hcf";
 const LIBRARY_FILE = "VCAB0_02_0S.efu";
 const FITTED_TIRES = "Tires on the truck";
-const TIRES_LOCKED_MESSAGE = "Upload or select a base tune first.";
+const TIRES_NO_TUNE_MESSAGE = "Upload or select a base tune to set the tires on the truck.";
 
 /** The 3→4 closed-throttle shift point of the synthetic tune, in mph. */
 const SHIFT_POINT_3_4_CLOSED = "38.0";
@@ -55,22 +55,23 @@ test.describe("tune editor", () => {
     await expect(shiftPoint).toHaveValue(SHIFT_POINT_3_4_CLOSED);
   });
 
-  test("keeps the Tires module disabled until a tune is loaded, and shows the values of a collapsed module", async ({
+  test("shows no tire fields until a tune is loaded, and shows the values of a collapsed module", async ({
     page,
     editor,
   }) => {
     await editor.open();
+    const tires = page.locator("#tires");
     const fitted = editor.tireGroup(FITTED_TIRES);
-    const lockedMessage = page.getByText(TIRES_LOCKED_MESSAGE, { exact: true });
+    const notice = tires.getByText(TIRES_NO_TUNE_MESSAGE, { exact: true });
     const manualTab = fitted.getByRole("tab", { name: "Manual tire size", exact: true });
 
-    await expect(lockedMessage).toBeVisible();
-    await expect(manualTab).toBeDisabled();
-    await expect(fitted.getByRole("combobox")).toBeDisabled();
+    await expect(notice).toBeVisible();
+    await expect(tires.getByText("No tune loaded", { exact: true })).toBeVisible();
+    await expect(fitted).toHaveCount(0);
 
     await editor.openUpload(hcfUpload());
 
-    await expect(lockedMessage).toHaveCount(0);
+    await expect(notice).toHaveCount(0);
     await expect(manualTab).toBeEnabled();
     await expect(fitted.getByRole("combobox")).toBeEnabled();
 

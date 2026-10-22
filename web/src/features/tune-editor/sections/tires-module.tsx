@@ -1,12 +1,13 @@
 "use client";
 
-import { CaretDownIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, TireIcon } from "@phosphor-icons/react";
 import { formatTireSize } from "@seven-tree/hydra";
 
 import { CollapsibleModule } from "@/components/layout/collapsible-module";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
+import { NoTuneNotice } from "../components/no-tune-notice";
 import { TireSizeFields } from "../components/tire-size-fields";
 import { selectSpeedometerFactor, selectTireDiameters } from "../state/editor-selectors";
 import { summarizeTires } from "../state/module-summaries";
@@ -18,31 +19,30 @@ import {
 } from "../state/tire-options";
 import { useTuneEditor } from "../tune-editor-provider";
 
-const LOCKED_MESSAGE = "Upload or select a base tune first.";
+const NO_TUNE_DESCRIPTION = "Upload or select a base tune to set the tires on the truck.";
 
 /** The sizes the tire lists offer. The tire chart never changes, so it is read once. */
 const TIRE_SIZE_OPTIONS = selectTireSizeOptions();
 
 /**
  * The tires on the truck and the tire size the speedometer is calibrated for. Both turn the base
- * tune's shift points into speedometer mph, so the module stays disabled until a tune is loaded.
+ * tune's shift points into speedometer mph, so until a tune is loaded the module shows only a
+ * notice, the way Shiftpoints does.
  */
 export function TiresModule() {
   const { state } = useTuneEditor();
 
   return (
-    <CollapsibleModule
-      id="tires"
-      title="Tires"
-      summary={summarizeTires(state)}
-      disabled={!state.tune}
-      disabledMessage={LOCKED_MESSAGE}
-    >
-      <div className="space-y-6">
-        <FittedTires />
-        <CalibrationTires />
-        <TireCompensation />
-      </div>
+    <CollapsibleModule id="tires" title="Tires" summary={summarizeTires(state)}>
+      {state.tune ? (
+        <div className="space-y-6">
+          <FittedTires />
+          <CalibrationTires />
+          <TireCompensation />
+        </div>
+      ) : (
+        <NoTuneNotice icon={<TireIcon />} description={NO_TUNE_DESCRIPTION} />
+      )}
     </CollapsibleModule>
   );
 }
@@ -109,11 +109,7 @@ function TireCompensation() {
           {` (${formatTireSize(state.fittedTire)} fitted, ${calibrationSize} calibration)`}
         </span>
       </p>
-      <Button
-        variant="secondary"
-        disabled={!state.tune || factor === 1}
-        onClick={applyTireCompensation}
-      >
+      <Button variant="secondary" disabled={factor === 1} onClick={applyTireCompensation}>
         Set shift points for these tires
       </Button>
       <p className="text-xs text-muted-foreground">

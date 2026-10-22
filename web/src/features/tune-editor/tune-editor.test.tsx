@@ -21,7 +21,7 @@ const SERIAL = "0A1B2C3D";
 const SHIFT_POINTS_HELP =
   "Shift point is the speed stored in the tune; the PCM computes it for the calibration tire size. Speedometer is the road speed on the tires entered, which a speedometer calibrated for those tires shows. If the speedometer was not recalibrated for the tires, the dash shows the shift point instead. Editing either column updates the other.";
 
-const TIRES_LOCKED_MESSAGE = "Upload or select a base tune first.";
+const TIRES_NO_TUNE_MESSAGE = "Upload or select a base tune to set the tires on the truck.";
 const STOCK_OPTION: LibraryTuneOption = {
   fileName: "VCAB0_02_0S.efu",
   code: "0S",
@@ -668,46 +668,34 @@ describe("page modules", () => {
   });
 
   describe("before a tune is loaded", () => {
-    it("keeps the tire fields disabled, with a message, until a tune is loaded", async () => {
+    it("shows a No tune loaded notice in Tires, and none of its fields, until a tune is loaded", async () => {
       const user = userEvent.setup();
       renderEditor();
       const tires = () => within(moduleCard("Tires"));
-      const fitted = () => tireGroup("Tires on the truck");
 
-      expect(tires().getByText(TIRES_LOCKED_MESSAGE)).toBeInTheDocument();
-      expect(fitted().getByRole("combobox", { name: /^Tires on the truck/ })).toBeDisabled();
-      expect(fitted().getByRole("tab", { name: "Choose tire size" })).toBeDisabled();
-      expect(fitted().getByRole("tab", { name: "Manual tire size" })).toBeDisabled();
-      expect(tires().getByRole("button", { name: /speedometer calibration/i })).toBeDisabled();
-      expect(
-        tires().getByRole("button", { name: "Set shift points for these tires" }),
-      ).toBeDisabled();
-      // No button, tab or field of the module is usable, whichever tab is showing.
-      expect(controlsInModule("Tires").length).toBeGreaterThan(0);
-      for (const control of controlsInModule("Tires")) expect(control).toBeDisabled();
+      expect(tires().getByText("No tune loaded")).toBeInTheDocument();
+      expect(tires().getByText(TIRES_NO_TUNE_MESSAGE)).toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Tires on the truck" })).not.toBeInTheDocument();
+      expect(tires().queryByText(/^Speedometer mph =/)).not.toBeInTheDocument();
+      expect(controlsInModule("Tires")).toEqual([]);
 
       await openTune(user);
 
-      expect(tires().queryByText(TIRES_LOCKED_MESSAGE)).not.toBeInTheDocument();
-      expect(fitted().getByRole("combobox", { name: /^Tires on the truck/ })).toBeEnabled();
-      expect(fitted().getByRole("tab", { name: "Choose tire size" })).toBeEnabled();
-      expect(fitted().getByRole("tab", { name: "Manual tire size" })).toBeEnabled();
+      expect(tires().queryByText("No tune loaded")).not.toBeInTheDocument();
+      const fitted = tireGroup("Tires on the truck");
+      expect(fitted.getByRole("combobox", { name: /^Tires on the truck/ })).toBeEnabled();
+      expect(fitted.getByRole("tab", { name: "Manual tire size" })).toBeEnabled();
       expect(tires().getByRole("button", { name: /speedometer calibration/i })).toBeEnabled();
     });
 
-    it("lets the disabled Tires module collapse to the factory tires", async () => {
+    it("collapses Tires to No tune loaded until a tune is loaded", async () => {
       const user = userEvent.setup();
       renderEditor();
 
       await user.click(moduleToggle("Tires"));
 
-      expect(screen.queryByRole("group", { name: "Tires on the truck" })).not.toBeInTheDocument();
-      expect(screen.queryByText(TIRES_LOCKED_MESSAGE)).not.toBeInTheDocument();
-      expect(
-        within(moduleCard("Tires")).getByText(
-          "235/85R16 · 31.73 in · calibrated for 235/85R16 · speedometer × 1.0000",
-        ),
-      ).toBeInTheDocument();
+      expect(screen.queryByText(TIRES_NO_TUNE_MESSAGE)).not.toBeInTheDocument();
+      expect(within(moduleCard("Tires")).getByText("No tune loaded")).toBeInTheDocument();
     });
 
     it("tells what to do in Idle and Shiftpoints until a tune is loaded", async () => {
