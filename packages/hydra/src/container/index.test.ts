@@ -20,6 +20,8 @@ describe("container public API", () => {
         "containerFormatFromFileName",
         "formatCalibration",
         "hcfKey",
+        "isChipSerial",
+        "normalizeChipSerial",
         "parseChipSerial",
         "unformatCalibration",
       ].sort(),

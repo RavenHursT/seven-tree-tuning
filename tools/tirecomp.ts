@@ -4,8 +4,9 @@
  * and all three downshift curves) in a decrypted TDE1 256 KiB PCM image by a
  * tire-size factor, so shift points occur at the correct road speed on non-stock tires.
  *
- * Command-line wrapper around the @seven-tree/hydra library (packages/hydra), which holds the
- * curve offsets, the layout check and the scaling. The web editor uses the same code.
+ * Command-line wrapper around the hydra library in packages/hydra, which holds the curve
+ * offsets, the layout check and the scaling. The web editor uses the same code. The library is
+ * imported by relative path, so this file runs in a checkout that has not run `npm install`.
  *
  * Works on the decrypted .bin (use tools/hcf.ts to decrypt first and encrypt after):
  *     bun tools/hcf.ts decrypt <serial8> tunes/<base>.hcf base.bin
@@ -18,7 +19,7 @@
  * are scaled; axes, fueling, and timing are left byte-identical.
  *
  * Upshifts and downshifts must be scaled together. Scaling only the upshifts leaves some
- * downshift points at or above their matching upshift (e.g. 4->3 above 3->4 at cruise),
+ * downshift points above their matching upshift (e.g. 4->3 above 3->4 at cruise),
  * and the transmission hunts between gears. Confirmed on the truck 2026-10-21.
  *
  * Factor 0.9147 = stock tire diameter 31.6496" / actual 34.6024" (LT265/75R16 -> 315/75R16).
@@ -35,8 +36,8 @@ import {
   speedRawToMph,
   TDE1,
   writeTuneValues,
-} from "@seven-tree/hydra";
-import type { ShiftCurveId, TuneValues } from "@seven-tree/hydra";
+} from "../packages/hydra/src";
+import type { ShiftCurveId, TuneValues } from "../packages/hydra/src";
 
 const CURVE_NAMES: Record<ShiftCurveId, string> = {
   "up-1-2": "1->2 up",

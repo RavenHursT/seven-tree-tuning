@@ -53,6 +53,7 @@ export {
   speedoMphToShiftPointRaw,
   STOCK_TIRE,
   TIRE_PRESETS,
+  TIRE_SIZE_LIMITS,
   tireCompensationFactor,
   tireDiameterIn,
 } from "./tire";

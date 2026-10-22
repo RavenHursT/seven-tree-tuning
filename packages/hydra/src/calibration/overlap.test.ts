@@ -49,6 +49,8 @@ describe("findShiftOverlaps on the Daily Driver tune", () => {
     expect(findShiftOverlaps(curves, scaleShiftSpeeds(base, 0.9147))).toEqual([]);
   });
 
+  // The scaled 3→4 upshift and the 4→3 downshift are both 36 mph (raw 72) at byte 81, so the
+  // first 3→4 overlap stops at byte 80.
   it("finds the overlaps that made the transmission hunt when only the upshifts are scaled", () => {
     expect(findShiftOverlaps(curves, upshiftsOnlyScaled(0.9147))).toEqual([
       {
@@ -66,7 +68,7 @@ describe("findShiftOverlaps on the Daily Driver tune", () => {
         lowerGear: 3,
         upperGear: 4,
         throttleFromRaw: 0,
-        throttleToRaw: 81,
+        throttleToRaw: 80,
         worstMarginMph: -1,
       },
       {
@@ -110,11 +112,42 @@ describe("findShiftOverlaps on the Daily Driver tune", () => {
 });
 
 describe("findShiftOverlaps on built curves", () => {
-  it("counts a margin of exactly zero as an overlap", () => {
+  it("does not count equal upshift and downshift speeds as an overlap", () => {
     const flat = Array(10).fill(40);
     const overlaps = findShiftOverlaps(
       [makeCurve("up-1-2", FLAT_AXIS), makeCurve("down-2-1", FLAT_AXIS)],
       valuesWith({ "up-1-2": flat, "down-2-1": flat }),
+    );
+    expect(overlaps).toEqual([]);
+  });
+
+  it("does not count a throttle byte where interpolated speeds are equal but differ in the last digits", () => {
+    // The 5.5→20 mph upshift and the 10.5→10 mph downshift both read 10.33 mph at byte 85. The
+    // floating-point difference there is about -1.8e-15 mph: rounding, not a downshift above.
+    const overlaps = findShiftOverlaps(
+      [makeCurve("up-1-2", FLAT_AXIS), makeCurve("down-2-1", FLAT_AXIS)],
+      valuesWith({
+        "up-1-2": [40, 11, 11, 11, 11, 11, 11, 11, 11, 11],
+        "down-2-1": [20, 21, 21, 21, 21, 21, 21, 21, 21, 21],
+      }),
+    );
+    expect(overlaps).toEqual([
+      {
+        upshift: "up-1-2",
+        downshift: "down-2-1",
+        lowerGear: 1,
+        upperGear: 2,
+        throttleFromRaw: 0,
+        throttleToRaw: 84,
+        worstMarginMph: -5,
+      },
+    ]);
+  });
+
+  it("counts a downshift half a mph above its upshift as an overlap", () => {
+    const overlaps = findShiftOverlaps(
+      [makeCurve("up-1-2", FLAT_AXIS), makeCurve("down-2-1", FLAT_AXIS)],
+      valuesWith({ "up-1-2": Array(10).fill(40), "down-2-1": Array(10).fill(41) }),
     );
     expect(overlaps).toEqual([
       {
@@ -124,7 +157,41 @@ describe("findShiftOverlaps on built curves", () => {
         upperGear: 2,
         throttleFromRaw: 0,
         throttleToRaw: 255,
-        worstMarginMph: 0,
+        worstMarginMph: -0.5,
+      },
+    ]);
+  });
+
+  it("does not report speeds that are equal only at closed throttle", () => {
+    // Power Hungry's library tunes ship 10 mph for both 1→2 and 2→1 at light throttle.
+    const overlaps = findShiftOverlaps(
+      [makeCurve("up-1-2", FLAT_AXIS), makeCurve("down-2-1", FLAT_AXIS)],
+      valuesWith({
+        "up-1-2": [60, 20, 20, 20, 20, 20, 20, 20, 20, 20],
+        "down-2-1": [40, 20, 20, 20, 20, 20, 20, 20, 20, 20],
+      }),
+    );
+    expect(overlaps).toEqual([]);
+  });
+
+  it("ends an overlap before the throttle where the two speeds become equal", () => {
+    // The upshift rises from 5 mph at closed throttle and equals the 20 mph downshift at byte 102.
+    const overlaps = findShiftOverlaps(
+      [makeCurve("up-1-2", FLAT_AXIS), makeCurve("down-2-1", FLAT_AXIS)],
+      valuesWith({
+        "up-1-2": [85, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+        "down-2-1": Array(10).fill(40),
+      }),
+    );
+    expect(overlaps).toEqual([
+      {
+        upshift: "up-1-2",
+        downshift: "down-2-1",
+        lowerGear: 1,
+        upperGear: 2,
+        throttleFromRaw: 0,
+        throttleToRaw: 101,
+        worstMarginMph: -15,
       },
     ]);
   });
@@ -155,6 +222,16 @@ describe("findShiftOverlaps on built curves", () => {
         worstMarginMph: -10,
       },
     ]);
+  });
+
+  it("does not count a step whose value just below it only equals the downshift", () => {
+    const stepAxis = [255, 100, 100, 99, 0, 0, 0, 0, 0, 0];
+    const upSpeeds = [100, 100, 50, 100, 100, 100, 100, 100, 100, 100];
+    const overlaps = findShiftOverlaps(
+      [makeCurve("up-1-2", stepAxis), makeCurve("down-2-1", FLAT_AXIS)],
+      valuesWith({ "up-1-2": upSpeeds, "down-2-1": Array(10).fill(50) }),
+    );
+    expect(overlaps).toEqual([]);
   });
 
   it("skips an upshift whose downshift is not in the list of curves", () => {

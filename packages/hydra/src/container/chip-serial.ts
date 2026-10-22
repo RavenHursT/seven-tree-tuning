@@ -8,17 +8,34 @@ const KEY_PREFIX = Uint8Array.of(0x46, 0x75, 0x63, 0x6b);
 const KEY_SUFFIX = Uint8Array.of(0x44, 0x50, 0x2d, 0x54);
 
 /**
+ * Puts a chip serial typed by a person in its standard form: surrounding white space removed and
+ * letters in upper case. It checks nothing, so text that is not a chip serial comes back changed
+ * in the same way. Use `isChipSerial` to check it.
+ */
+export function normalizeChipSerial(input: string): string {
+  return input.trim().toUpperCase();
+}
+
+/**
+ * True when `input`, ignoring surrounding white space, is exactly 8 hexadecimal digits in either
+ * letter case. The text is checked as typed: a character that only becomes a hexadecimal digit
+ * when changed to upper case (the ligature "ﬀ" becomes "FF") is rejected.
+ */
+export function isChipSerial(input: string): boolean {
+  return CHIP_SERIAL_PATTERN.test(input.trim());
+}
+
+/**
  * Checks a chip serial typed by a person: the first 8 characters of the chip's USB serial
  * number, which are 8 hexadecimal digits.
  * @returns The 8 digits in upper case, without surrounding white space.
  * @throws InvalidChipSerialError unless the trimmed input is exactly 8 hexadecimal digits.
  */
 export function parseChipSerial(input: string): string {
-  const trimmed = input.trim();
-  if (!CHIP_SERIAL_PATTERN.test(trimmed)) {
+  if (!isChipSerial(input)) {
     throw new InvalidChipSerialError();
   }
-  return trimmed.toUpperCase();
+  return normalizeChipSerial(input);
 }
 
 /**

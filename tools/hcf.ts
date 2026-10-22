@@ -2,8 +2,9 @@
 /**
  * hcf.ts - decrypt / encrypt Power Hungry Performance Hydra ".hcf" calibration files.
  *
- * Command-line wrapper around the @seven-tree/hydra library (packages/hydra), which holds the
- * Blowfish cipher and the file formats. Reverse-engineered from HydraFlash 3
+ * Command-line wrapper around the hydra library in packages/hydra, which holds the Blowfish
+ * cipher and the file formats. The library is imported by relative path, so this file runs in a
+ * checkout that has not run `npm install`. Reverse-engineered from HydraFlash 3
  * (v3.1.6.0, HydraFlashCS.dll). .hcf files are Blowfish (ECB, 64-bit block,
  * standard pi-digit S-boxes) encrypted. For a .hcf the key is tied to the chip
  * serial:
@@ -32,7 +33,7 @@ import {
   HCF_FILE_SIZE,
   HydraFileError,
   unformatCalibration,
-} from "@seven-tree/hydra";
+} from "../packages/hydra/src";
 
 const USAGE = "usage: hcf {decrypt|encrypt} <serial8> in out [--raw out.raw]  |  hcf selftest";
 const TRAILER_SIZE = 8;

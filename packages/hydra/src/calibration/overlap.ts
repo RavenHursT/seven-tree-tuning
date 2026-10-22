@@ -7,8 +7,16 @@ import { speedRawToMph } from "./units";
 const MAX_THROTTLE = 255;
 
 /**
- * A throttle range where a downshift happens at or above the speed of the matching upshift, so
- * the transmission can shift up and straight back down (gear hunting).
+ * Two interpolated speeds that are equal in exact arithmetic can differ by about 1e-14 mph in
+ * floating point. A difference below this is rounding, not a downshift above an upshift. Real
+ * differences are at least 1 / (2 x 255 x 255) mph, about 8e-6, so this stays far below them.
+ */
+const SPEED_TIE_TOLERANCE_MPH = 1e-9;
+
+/**
+ * A throttle range where a downshift happens above the speed of the matching upshift, so the
+ * transmission can shift up and straight back down (gear hunting). Equal speeds are not an
+ * overlap: the upshift has to be passed before the downshift is reached.
  */
 export interface ShiftOverlap {
   readonly upshift: ShiftCurveId;
@@ -19,7 +27,7 @@ export interface ShiftOverlap {
   readonly throttleFromRaw: number;
   /** Last throttle byte of the range. */
   readonly throttleToRaw: number;
-  /** Smallest (upshift - downshift) speed in the range, in mph. Zero or below. */
+  /** Smallest (upshift - downshift) speed in the range, in mph. Below zero. */
   readonly worstMarginMph: number;
 }
 
@@ -68,11 +76,16 @@ function marginAt(
   return speedRawToMph(Math.min(atThrottle, below));
 }
 
+/** The downshift is above the upshift. Equal speeds are not an overlap. */
+function isOverlap(marginMph: number): boolean {
+  return marginMph < -SPEED_TIE_TOLERANCE_MPH;
+}
+
 function overlapRanges(margins: readonly number[]): ThrottleRange[] {
   const ranges: ThrottleRange[] = [];
   let open: ThrottleRange | undefined;
   margins.forEach((margin, throttle) => {
-    if (margin > 0) {
+    if (!isOverlap(margin)) {
       open = undefined;
     } else if (open) {
       open.to = throttle;
@@ -113,13 +126,15 @@ function matchingDownshift(curves: readonly ShiftCurve[], up: ShiftCurve): Shift
 }
 
 /**
- * Finds where a downshift speed reaches its upshift speed, for each upshift paired with the
+ * Finds where a downshift speed is above its upshift speed, for each upshift paired with the
  * downshift between the same two gears (1→2 with 2→1, 2→3 with 3→2, 3→4 with 4→3).
  * Each curve uses its own throttle axis from `curves` and the speeds in `values`. Every throttle
  * byte 0..255 is checked, and at a step (a repeated throttle value) the lower of the value at the
  * step and the value just below it counts. An overlap is a run of consecutive throttle bytes where
- * upshift minus downshift is zero or below. Results follow the order of the upshift curves, then
- * rise in throttle.
+ * upshift minus downshift is below zero. Equal speeds are not an overlap: Power Hungry's library
+ * tunes ship equal 1→2 and 2→1 speeds at light throttle, and the hunting confirmed on the truck
+ * was a downshift above its upshift (4→3 at 36 mph against 3→4 at 35 mph). Results follow the
+ * order of the upshift curves, then rise in throttle.
  */
 export function findShiftOverlaps(
   curves: readonly ShiftCurve[],

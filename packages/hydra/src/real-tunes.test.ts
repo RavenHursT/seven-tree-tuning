@@ -175,7 +175,7 @@ describe.skipIf(!chipSerial)("the tunes in tunes/ (set HYDRA_CHIP_SERIAL to run)
     expect(decoded).toEqual(DOCUMENTED_SCHEDULES[name]);
   });
 
-  it.each(TUNE_NAMES)("%s has no throttle range where a downshift reaches its upshift", (name) => {
+  it.each(TUNE_NAMES)("%s has no throttle range where a downshift is above its upshift", (name) => {
     const image = decode(name);
     expect(findShiftOverlaps(readShiftCurves(image), readTuneValues(image))).toEqual([]);
   });

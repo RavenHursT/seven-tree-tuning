@@ -4,6 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  findLayoutIssues,
+  findShiftOverlaps,
+  readShiftCurves,
+  readTuneValues,
+} from "../calibration";
 import { EfuDecoder, HcfCodec } from "./index";
 import { expectSameBytes } from "./test-support";
 
@@ -69,5 +75,17 @@ describe.skipIf(efuFolder === undefined)("every .efu file in HYDRA_EFU_DIR", () 
 
     expect(image.length).toBe(262_144);
     expect(image[UPSHIFT_CURVE_BREAKPOINT_OFFSET]).toBe(0xff);
+  });
+
+  it.each(efuNames)("%s has the TDE1 shift-curve layout", (name) => {
+    const image = new EfuDecoder().decode(readBytes(efuFolder ?? "", name));
+
+    expect(findLayoutIssues(image)).toEqual([]);
+  });
+
+  it.each(efuNames)("%s has no throttle range where a downshift is above its upshift", (name) => {
+    const image = new EfuDecoder().decode(readBytes(efuFolder ?? "", name));
+
+    expect(findShiftOverlaps(readShiftCurves(image), readTuneValues(image))).toEqual([]);
   });
 });

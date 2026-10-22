@@ -8,6 +8,10 @@ library in [`packages/hydra`](../packages/hydra), which holds the Blowfish ciphe
 `.hcf` / `.efu` / `.bin` file formats (`src/container`). It compiles to a standalone native
 binary with Bun.
 
+`hcf.ts` and `tirecomp.ts` import the library by relative path (`../packages/hydra/src`), not by
+its package name. `bun tools/hcf.ts selftest` and `bun tools/tirecomp.ts ...` therefore run in a
+fresh checkout, without `npm install`.
+
 ## Node / Bun tool
 
 Requires [Bun](https://bun.sh) to build (`curl -fsSL https://bun.sh/install | bash`). The npm

@@ -44,19 +44,42 @@ export const TIRE_PRESETS: readonly TirePreset[] = [
   },
 ];
 
+/**
+ * The smallest and largest value of each part of a tire size that `parseTireSize` accepts, as
+ * [smallest, largest], both included. A size outside them is not a real tire. The text pattern
+ * reads an aspect ratio of two digits, so 99 is the largest it can see.
+ */
+export const TIRE_SIZE_LIMITS: {
+  readonly widthMm: readonly [number, number];
+  readonly aspectRatio: readonly [number, number];
+  readonly rimDiameterIn: readonly [number, number];
+} = {
+  widthMm: [100, 500],
+  aspectRatio: [20, 100],
+  rimDiameterIn: [8, 40],
+};
+
 const TIRE_PATTERN =
   /^\s*[A-Za-z]{0,2}\s*(\d{3})\s*\/\s*(\d{2})\s*(?:[Zz]?[Rr]|-)\s*(\d{2}(?:\.\d)?)(?=$|[\sA-Za-z])/;
 
+function isWithin(value: number, [smallest, largest]: readonly [number, number]): boolean {
+  return value >= smallest && value <= largest;
+}
+
 function isPlausible(tire: TireSize): boolean {
-  const { widthMm, aspectRatio, rimDiameterIn } = tire;
-  return widthMm >= 100 && aspectRatio >= 20 && rimDiameterIn >= 8 && rimDiameterIn <= 40;
+  return (
+    isWithin(tire.widthMm, TIRE_SIZE_LIMITS.widthMm) &&
+    isWithin(tire.aspectRatio, TIRE_SIZE_LIMITS.aspectRatio) &&
+    isWithin(tire.rimDiameterIn, TIRE_SIZE_LIMITS.rimDiameterIn)
+  );
 }
 
 /**
  * Reads a tire size such as "LT235/85R16", "315/75R16", "P265/70R17", "lt 235/85 r16",
  * "315/75R16 127/124Q" or "315/75-16". Text after the rim size is ignored when it starts with a
- * space or a letter. Returns undefined for anything else, and for sizes that are not plausible
- * (width under 100 mm, aspect under 20, rim under 8 or over 40 inches).
+ * space or a letter. Returns undefined for anything else, and for sizes outside
+ * `TIRE_SIZE_LIMITS` (width under 100 or over 500 mm, aspect under 20 or over 100, rim under 8 or
+ * over 40 inches).
  */
 export function parseTireSize(text: string): TireSize | undefined {
   const match = TIRE_PATTERN.exec(text);

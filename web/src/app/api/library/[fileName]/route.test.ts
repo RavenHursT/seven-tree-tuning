@@ -1,6 +1,10 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+
 import { PHP_LIBRARY_INDEX_URL, libraryTuneUrl } from "@seven-tree/hydra";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { libraryTuneApiPath } from "@/features/library/api";
 
 import { GET } from "./route";
 
@@ -31,8 +35,11 @@ function phpWithTune(): Record<string, Answer> {
 }
 
 function callGet(fileName: string, search = ""): Promise<Response> {
-  const url = `http://localhost:3000/api/library/${encodeURIComponent(fileName)}${search}`;
-  return GET(new Request(url), { params: Promise.resolve({ fileName }) });
+  const url = `http://localhost:3000${libraryTuneApiPath(fileName)}${search}`;
+  const context: RouteContext<"/api/library/[fileName]"> = {
+    params: Promise.resolve({ fileName }),
+  };
+  return GET(new Request(url), context);
 }
 
 function requestedUrls(fetchMock: ReturnType<typeof stubPhp>): string[] {
@@ -42,6 +49,15 @@ function requestedUrls(fetchMock: ReturnType<typeof stubPhp>): string[] {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+});
+
+describe("the route handler's types", () => {
+  it("takes Next's generated RouteContext for its own path as its context", () => {
+    // Types are erased when Vitest runs, so only this check notices a hand-written context type.
+    const source = readFileSync(new URL("./route.ts", import.meta.url), "utf8");
+    expect(source).toMatch(/context: RouteContext<"\/api\/library\/\[fileName\]">/);
+    expect(source).not.toMatch(/interface\s+\w*RouteContext\b/);
+  });
 });
 
 describe("GET /api/library/[fileName] for a tune in PHP's library", () => {

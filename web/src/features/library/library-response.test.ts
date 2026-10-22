@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 
+import { readLibraryApiError } from "./api";
 import { libraryTuneResponse } from "./library-response";
 import type { LibraryTuneFileResult } from "./types";
 
@@ -62,6 +63,15 @@ describe("libraryTuneResponse for a failure", () => {
     expect(response.headers.get("content-type")).toContain("application/json");
     await expect(response.json()).resolves.toEqual({ error: "PHP's server answered HTTP 503." });
   });
+
+  it.each([notFound, upstreamFailed])(
+    "sends a body that readLibraryApiError reads %#",
+    async (result) => {
+      const response = libraryTuneResponse(result);
+      const message = result.ok ? undefined : result.message;
+      expect(readLibraryApiError(await response.json())).toBe(message);
+    },
+  );
 
   it.each([notFound, upstreamFailed])("never lets a cache keep the error %#", (result) => {
     expect(libraryTuneResponse(result).headers.get("cache-control")).toBe("no-store");

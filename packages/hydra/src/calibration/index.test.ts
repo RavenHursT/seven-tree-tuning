@@ -43,6 +43,7 @@ const PUBLIC_VALUES = [
   "STOCK_TIRE",
   "TDE1",
   "TIRE_PRESETS",
+  "TIRE_SIZE_LIMITS",
   "UnexpectedImageChangeError",
   "UnsupportedCalibrationError",
   "assertOnlyEditableChanges",

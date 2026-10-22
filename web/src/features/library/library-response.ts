@@ -1,3 +1,4 @@
+import type { LibraryApiError } from "./api";
 import type { LibraryTuneFailure, LibraryTuneFileResult } from "./types";
 
 const FILE_CACHE_CONTROL = "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400";
@@ -13,10 +14,11 @@ const STATUS_BY_FAILURE: Readonly<Record<LibraryTuneFailure, number>> = {
  */
 export function libraryTuneResponse(result: LibraryTuneFileResult): Response {
   if (!result.ok) {
-    return Response.json(
-      { error: result.message },
-      { status: STATUS_BY_FAILURE[result.reason], headers: { "Cache-Control": "no-store" } },
-    );
+    const body: LibraryApiError = { error: result.message };
+    return Response.json(body, {
+      status: STATUS_BY_FAILURE[result.reason],
+      headers: { "Cache-Control": "no-store" },
+    });
   }
   return new Response(result.bytes, {
     status: 200,

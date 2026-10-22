@@ -8,6 +8,7 @@ import {
   speedometerFactor,
   STOCK_TIRE,
   TIRE_PRESETS,
+  TIRE_SIZE_LIMITS,
   tireCompensationFactor,
   tireDiameterIn,
 } from "./tire";
@@ -61,8 +62,55 @@ describe("parseTireSize", () => {
     "235/15R16",
     "235/85R05",
     "235/85R99",
+    "501/75R16",
+    "999/75R16",
+    "235/85R41",
   ])("rejects %j", (text) => {
     expect(parseTireSize(text)).toBeUndefined();
+  });
+});
+
+describe("TIRE_SIZE_LIMITS", () => {
+  it("holds the smallest and largest width, aspect ratio and rim in a plausible tire size", () => {
+    expect(TIRE_SIZE_LIMITS).toEqual({
+      widthMm: [100, 500],
+      aspectRatio: [20, 100],
+      rimDiameterIn: [8, 40],
+    });
+  });
+
+  it("holds a smallest value that is below its largest value", () => {
+    for (const [smallest, largest] of Object.values(TIRE_SIZE_LIMITS)) {
+      expect(smallest).toBeLessThan(largest);
+    }
+  });
+
+  it("lets parseTireSize accept a width at either limit and reject one just outside", () => {
+    const [smallest, largest] = TIRE_SIZE_LIMITS.widthMm;
+    expect(parseTireSize(`${smallest}/75R16`)?.widthMm).toBe(smallest);
+    expect(parseTireSize(`${largest}/75R16`)?.widthMm).toBe(largest);
+    expect(parseTireSize(`${smallest - 1}/75R16`)).toBeUndefined();
+    expect(parseTireSize(`${largest + 1}/75R16`)).toBeUndefined();
+  });
+
+  it("lets parseTireSize accept an aspect ratio at the lower limit and reject one just below", () => {
+    const [smallest, largest] = TIRE_SIZE_LIMITS.aspectRatio;
+    expect(parseTireSize(`235/${smallest}R16`)?.aspectRatio).toBe(smallest);
+    expect(parseTireSize(`235/${smallest - 1}R16`)).toBeUndefined();
+    // The pattern reads two digits, so 99 is the largest aspect ratio it can see, under the limit.
+    expect(largest).toBeGreaterThanOrEqual(99);
+    expect(parseTireSize("235/99R16")?.aspectRatio).toBe(99);
+  });
+
+  it("lets parseTireSize accept a rim at either limit and reject one just outside", () => {
+    const [smallest, largest] = TIRE_SIZE_LIMITS.rimDiameterIn;
+    const rim = (inches: number) => `235/85R${String(inches).padStart(2, "0")}`;
+    expect(parseTireSize(rim(smallest))?.rimDiameterIn).toBe(smallest);
+    expect(parseTireSize(rim(largest))?.rimDiameterIn).toBe(largest);
+    expect(parseTireSize(rim(smallest - 1))).toBeUndefined();
+    expect(parseTireSize(rim(largest + 1))).toBeUndefined();
+    expect(parseTireSize(`${rim(smallest)}.5`)?.rimDiameterIn).toBe(smallest + 0.5);
+    expect(parseTireSize(`${rim(largest)}.5`)).toBeUndefined();
   });
 });
 
