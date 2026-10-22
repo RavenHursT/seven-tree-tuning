@@ -56,18 +56,27 @@ function curveInput(title: string, throttle: string, column: "shift point" | "sp
   return screen.getByRole("textbox", { name: `${title}, ${throttle} throttle, ${column} (mph)` });
 }
 
-async function setTire(
+/** Types a size such as "315/75R16" or "35x12.50R17" on the Manual tab of a tire group. */
+async function setTire(user: ReturnType<typeof userEvent.setup>, group: string, size: string) {
+  const fields = within(screen.getByRole("group", { name: group }));
+  await user.click(fields.getByRole("tab", { name: "Manual tire size" }));
+  const input = fields.getByRole("textbox", { name: "Tire size" });
+  await user.clear(input);
+  await user.type(input, size);
+  await user.tab();
+}
+
+/** Opens the list of a tire group, types a search and clicks the option with the given name. */
+async function chooseTire(
   user: ReturnType<typeof userEvent.setup>,
   group: string,
-  widthMm: string,
-  aspect: string,
+  search: string,
+  option: string | RegExp,
 ) {
   const fields = within(screen.getByRole("group", { name: group }));
-  await user.clear(fields.getByLabelText("Width (mm)"));
-  await user.type(fields.getByLabelText("Width (mm)"), widthMm);
-  await user.clear(fields.getByLabelText("Aspect (%)"));
-  await user.type(fields.getByLabelText("Aspect (%)"), aspect);
-  await user.tab();
+  await user.click(fields.getByRole("combobox", { name: new RegExp(`^${group}`) }));
+  await user.type(screen.getByRole("combobox", { name: "Search tire sizes" }), search);
+  await user.click(screen.getByRole("option", { name: option }));
 }
 
 async function openTune(user: ReturnType<typeof userEvent.setup>) {
@@ -134,7 +143,7 @@ describe("tune editor", () => {
     renderEditor();
     await openTune(user);
 
-    await setTire(user, "Tires on the truck", "315", "75");
+    await setTire(user, "Tires on the truck", "315/75R16");
     expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("41.4");
 
     const speedometer = curveInput("3→4 (overdrive)", "0%", "speedometer");
@@ -145,19 +154,91 @@ describe("tune editor", () => {
     expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("36.5");
   });
 
-  it("ignores an implausible tire width while it is being typed", async () => {
+  it("updates the speedometer values when a size is chosen from the searchable list", async () => {
     const user = userEvent.setup();
     renderEditor();
     await openTune(user);
-    const width = within(screen.getByRole("group", { name: "Tires on the truck" })).getByLabelText(
-      "Width (mm)",
+    const fitted = within(screen.getByRole("group", { name: "Tires on the truck" }));
+    expect(
+      fitted.getByRole("combobox", { name: "Tires on the truck LT235/85R16" }),
+    ).toBeInTheDocument();
+
+    await chooseTire(user, "Tires on the truck", "315/75", "315/75R16");
+
+    expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("41.4");
+    expect(fitted.getByRole("status", { name: "Diameter" })).toHaveTextContent("34.60 in");
+    expect(
+      fitted.getByRole("combobox", { name: "Tires on the truck 315/75R16" }),
+    ).toBeInTheDocument();
+
+    await chooseTire(user, "Tires on the truck", "lt235", /^LT235\/85R16/);
+
+    expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("38.0");
+    expect(fitted.getByRole("status", { name: "Diameter" })).toHaveTextContent("31.73 in");
+  });
+
+  it("works with a flotation size typed in, which names its own diameter", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+
+    await setTire(user, "Tires on the truck", "35x12.50R17");
+
+    const fitted = within(screen.getByRole("group", { name: "Tires on the truck" }));
+    expect(fitted.getByRole("status", { name: "Diameter" })).toHaveTextContent("35.00 in");
+    expect(screen.getByText(/35x12\.50R17 fitted/)).toBeInTheDocument();
+    // 38.0 mph on the 31.73 in tires the tune is calibrated for is 41.9 mph on 35.00 in tires.
+    expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("41.9");
+
+    const speedometer = curveInput("3→4 (overdrive)", "0%", "speedometer");
+    await user.clear(speedometer);
+    await user.type(speedometer, "44");
+
+    // 44 mph on 35.00 in tires = 39.89 mph on 31.73 in tires; the tune stores 0.5 mph steps.
+    expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("40.0");
+  });
+
+  it("shows a flotation size chosen from the list in the Manual tab as typed", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+
+    await chooseTire(user, "Tires on the truck", "35x12.50r17", "35x12.50R17");
+
+    const fitted = within(screen.getByRole("group", { name: "Tires on the truck" }));
+    expect(fitted.getByRole("status", { name: "Diameter" })).toHaveTextContent("35.00 in");
+    await user.click(fitted.getByRole("tab", { name: "Manual tire size" }));
+    expect(fitted.getByRole("textbox", { name: "Tire size" })).toHaveValue("35x12.50R17");
+  });
+
+  it("ignores an implausible tire size while it is being typed", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+
+    await setTire(user, "Tires on the truck", "031/75R16");
+
+    // A 31 mm wide tire would make every speedometer value a fraction of the shift point.
+    expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("38.0");
+    const tireSize = within(screen.getByRole("group", { name: "Tires on the truck" })).getByRole(
+      "textbox",
+      { name: "Tire size" },
     );
+    expect(tireSize).toHaveValue("235/85R16");
+  });
 
-    await user.clear(width);
-    await user.type(width, "31");
+  it("says what to enter while the tire size typed is not a size, and ignores it", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+    const group = within(screen.getByRole("group", { name: "Tires on the truck" }));
+    await user.click(group.getByRole("tab", { name: "Manual tire size" }));
+    const input = group.getByRole("textbox", { name: "Tire size" });
 
-    // A 31 mm tire would make every speedometer value a fraction of the shift point.
-    expect(screen.getByText("Enter a number from 100 to 500.")).toBeInTheDocument();
+    await user.clear(input);
+    await user.type(input, "501/75R16");
+
+    expect(screen.getByText("Enter a size like 315/75R16 or 35x12.50R17.")).toBeInTheDocument();
     expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("38.0");
   });
 
@@ -165,7 +246,7 @@ describe("tune editor", () => {
     const user = userEvent.setup();
     renderEditor();
     await openTune(user);
-    await setTire(user, "Tires on the truck", "315", "75");
+    await setTire(user, "Tires on the truck", "315/75R16");
 
     await user.click(curveInput("3→4 (overdrive)", "0%", "speedometer"));
     await user.keyboard("{ArrowUp}");
@@ -194,11 +275,25 @@ describe("tune editor", () => {
     await openTune(user);
 
     await user.click(screen.getByRole("button", { name: /speedometer calibration/i }));
-    await setTire(user, "Tire size the speedometer is calibrated for", "265", "75");
-    await setTire(user, "Tires on the truck", "315", "75");
+    await setTire(user, "Tire size the speedometer is calibrated for", "265/75R16");
+    await setTire(user, "Tires on the truck", "315/75R16");
     await user.click(screen.getByRole("button", { name: "Set shift points for these tires" }));
 
     // The shipped -TIRECOMP-UPDOWN Daily Driver: 3→4 closed 38.0 -> 35.0, 4→3 closed 36.0 -> 33.0.
+    expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("35.0");
+    expect(curveInput("4→3 (out of overdrive)", "0%", "shift point")).toHaveValue("33.0");
+  });
+
+  it("sets every shift point for the fitted tires in one step, with both sizes chosen from the list", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+
+    await user.click(screen.getByRole("button", { name: /speedometer calibration/i }));
+    await chooseTire(user, "Tire size the speedometer is calibrated for", "265/75", "265/75R16");
+    await chooseTire(user, "Tires on the truck", "315/75", "315/75R16");
+    await user.click(screen.getByRole("button", { name: "Set shift points for these tires" }));
+
     expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("35.0");
     expect(curveInput("4→3 (out of overdrive)", "0%", "shift point")).toHaveValue("33.0");
   });
@@ -403,7 +498,7 @@ describe("unsaved changes", () => {
     const wot = curveInput("3→4 (overdrive)", "100%", "shift point");
     await user.clear(wot);
     await user.type(wot, "60");
-    await setTire(user, "Tires on the truck", "315", "75");
+    await setTire(user, "Tires on the truck", "315/75R16");
 
     await user.click(screen.getByRole("button", { name: "Set shift points for these tires" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Discard your changes?" });
