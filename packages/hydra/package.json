@@ -1,0 +1,17 @@
+{
+  "name": "@seven-tree/hydra",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hydra calibration file codecs and TDE1 shift-schedule / idle editing, shared by the CLI tools and the web app",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,111 @@
+# Runs on every pull request. Two jobs run at the same time:
+#   unit  type check, lint, format check and the Vitest tests
+#   e2e   the Playwright tests in Chromium, against a production build
+#
+# Each action uses a full commit hash, not a tag. The comment after the hash names the release tag.
+# This workflow does not set HYDRA_CHIP_SERIAL or HYDRA_EFU_DIR, so the tests that need them skip.
+name: CI
+
+on: pull_request
+
+# Both jobs only read the repository. No job uses a secret.
+permissions:
+  contents: read
+
+# A new push to a pull request cancels the run that is still going for the same pull request.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Type check, lint, format and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No later step runs git, so the job token stays out of .git/config.
+          persist-credentials: false
+
+      - name: Set up Node.js from .nvmrc
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run unit and component tests
+        run: npm test
+
+  e2e:
+    name: End-to-end tests in Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No later step runs git, so the job token stays out of .git/config.
+          persist-credentials: false
+
+      - name: Set up Node.js from .nvmrc
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The browser cache key holds this version, so a new Playwright version gets its own browsers.
+      - name: Read the Playwright version from package-lock.json
+        id: playwright-version
+        run: |
+          version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      # The cache holds the browsers only. Chromium also needs operating system packages.
+      # A cache miss installs both. A cache hit installs the packages only.
+      - name: Install Chromium and its operating system packages
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npm exec --workspace web -- playwright install --with-deps chromium
+
+      - name: Install the operating system packages for Chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npm exec --workspace web -- playwright install-deps chromium
+
+      # Playwright builds the production app and starts it on port 3200 (web/playwright.config.ts).
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+
+      # An artifact name can be used once in a workflow run, and a re-run is part of the same run.
+      # The attempt number keeps the name of a re-run different from the name of the first attempt.
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-attempt-${{ github.run_attempt }}
+          path: |
+            web/playwright-report/
+            web/test-results/
+          retention-days: 7

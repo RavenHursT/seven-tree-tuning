@@ -2,8 +2,15 @@
 
 Decrypts and re-encrypts Power Hungry Performance Hydra `.hcf` calibration files.
 
-`hcf.ts` is the tool. It compiles to a standalone native binary with Bun. `blowfish-boxes.ts`
-holds the standard Blowfish P-array and S-boxes.
+`hcf.ts` is the tool. It is a thin command-line wrapper around the shared `@seven-tree/hydra`
+library in [`packages/hydra`](../packages/hydra), which holds the Blowfish cipher
+(`src/crypto`, including `blowfish-boxes.ts` with the standard P-array and S-boxes) and the
+`.hcf` / `.efu` / `.bin` file formats (`src/container`). It compiles to a standalone native
+binary with Bun.
+
+`hcf.ts` and `tirecomp.ts` import the library by relative path (`../packages/hydra/src`), not by
+its package name. `bun tools/hcf.ts selftest` and `bun tools/tirecomp.ts ...` therefore run in a
+fresh checkout, without `npm install`.
 
 ## Node / Bun tool
 
@@ -42,7 +49,8 @@ managed code is in `HydraFlashCS.dll`:
 - `HydraFlashCS.Blowfish` — textbook Blowfish: 16 rounds, big-endian block packing, F function
   `((S0[a] + S1[b]) ^ S2[c]) + S3[d]`, and the standard cyclic key schedule. The `pBase`/`sBase`
   constants are the standard hex-digits-of-pi boxes (verified: `P[0] = 0x243f6a88`,
-  `S[0][0] = 0xd1310ba6`); `blowfish-boxes.ts` is those constants extracted verbatim.
+  `S[0][0] = 0xd1310ba6`); `packages/hydra/src/crypto/blowfish-boxes.ts` is those constants
+  extracted verbatim.
 - `HydraFlashCS.Cryptography` — `GetKeyByUserId`, `GetKeyData`, `Decrypt`/`Encrypt`. `Decrypt`
   runs Blowfish-ECB in place (its `RemovePadding` result is discarded — dead code).
 - `Calibrations.GetCalibrationData` — the loader. For a `.hcf` it builds the key as
@@ -62,3 +70,17 @@ Decrypting a known tune yields the erased-flash filler (`0xFF`×8) exactly where
 its repeated block, entropy drops from 6.40 to 4.42 bits/byte, and the trailer is valid PKCS#7
 (`08`×8). A wrong serial produces random garbage instead. `.bin → .hcf → compare` reproduces the
 original file identically.
+
+## Tire size list
+
+`update-tire-chart.ts` regenerates `packages/hydra/src/calibration/tire-chart.ts`, the light-truck tire
+sizes the web editor offers, from a saved copy of <https://tiresize.com/chart/>. It reads no network.
+
+```
+curl -sL https://tiresize.com/chart/ -o chart.html
+bun tools/update-tire-chart.ts chart.html --retrieved 2026-10-22
+```
+
+It keeps sizes on 15–24 in rims with an overall diameter of 28–44 in (metric width at least 195 mm
+and aspect at least 55; flotation width at least 8.5 in), and writes nothing if the page layout no
+longer matches. `tire-chart-generator.test.ts` checks that the committed file is exactly its output.

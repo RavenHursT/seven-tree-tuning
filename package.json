@@ -1,18 +1,41 @@
 {
-  "name": "hcf-tool",
+  "name": "seven-tree-tuning",
   "version": "1.0.0",
-  "description": "Decrypt / encrypt Power Hungry Performance Hydra .hcf calibration files",
+  "private": true,
+  "description": "Hydra .hcf tools and a web tune editor for a 1996 Ford F-350 7.3L (PCM strategy TDE1)",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "web"
+  ],
   "bin": {
     "hcf": "dist/hcf"
   },
   "scripts": {
     "build": "bun build tools/hcf.ts --compile --outfile dist/hcf",
     "run": "dist/hcf",
-    "selftest": "dist/hcf selftest"
+    "selftest": "dist/hcf selftest",
+    "dev": "npm run dev --workspace web",
+    "build:web": "npm run build --workspace web",
+    "start": "npm run start --workspace web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npm run test:e2e --workspace web",
+    "lint": "npm run lint --workspace web",
+    "typecheck": "tsc --noEmit -p tsconfig.json && npm run typecheck --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "engines": {
+    "node": ">=24",
     "bun": ">=1.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "prettier": "^3.9.10",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  }
 }
