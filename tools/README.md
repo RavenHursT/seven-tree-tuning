@@ -70,3 +70,17 @@ Decrypting a known tune yields the erased-flash filler (`0xFF`×8) exactly where
 its repeated block, entropy drops from 6.40 to 4.42 bits/byte, and the trailer is valid PKCS#7
 (`08`×8). A wrong serial produces random garbage instead. `.bin → .hcf → compare` reproduces the
 original file identically.
+
+## Tire size list
+
+`update-tire-chart.ts` regenerates `packages/hydra/src/calibration/tire-chart.ts`, the light-truck tire
+sizes the web editor offers, from a saved copy of <https://tiresize.com/chart/>. It reads no network.
+
+```
+curl -sL https://tiresize.com/chart/ -o chart.html
+bun tools/update-tire-chart.ts chart.html --retrieved 2026-10-22
+```
+
+It keeps sizes on 15–24 in rims with an overall diameter of 28–44 in (metric width at least 195 mm
+and aspect at least 55; flotation width at least 8.5 in), and writes nothing if the page layout no
+longer matches. `tire-chart-generator.test.ts` checks that the committed file is exactly its output.

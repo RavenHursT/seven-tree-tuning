@@ -14,6 +14,11 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   `packages/hydra/src` by relative path, so they work in a checkout without `npm install`.
   `packages/hydra/src/tools-import.test.ts` fails if a tool switches to the package name.
 - Bun resolves a script's imports from the script's folder, not from the current directory.
+- `import.meta.main` is true for a script Bun runs directly and undefined under Vitest, so a tool
+  can export its functions for tests and still run as a command.
+- `next dev` writes to `web/.next/dev` and `next build` to `web/.next`, so both can run at once.
+- While agents edit the worktree, run the owner's dev server from a separate snapshot worktree
+  (detached at the last commit). A half-finished edit otherwise shows the owner a build error.
 
 ## Next.js 16.4
 
@@ -92,6 +97,10 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   fixture.
 - jest-dom's `toBeDisabled` checks only the `disabled` attribute. For an `aria-disabled` button,
   assert `toHaveAttribute("aria-disabled", "true")`. Playwright's `toBeDisabled` checks both.
+- cmdk (the shadcn `command` list) keeps a group with no matches mounted but `hidden`. Assert
+  `not.toBeVisible()`, not absence. Its `defaultValue` highlights and scrolls to the chosen item.
+- jsdom drops the text of an element that names itself through `aria-labelledby`. Build a trigger's
+  accessible name from the label and an inner span instead.
 - Install Playwright browsers with `PLAYWRIGHT_SKIP_BROWSER_GC=1`. Without it, `playwright install`
   deletes browser builds that other Playwright installs on the machine still use.
 - Playwright 1.64 loads the workspace package's TypeScript source, extension-less imports included.
@@ -135,3 +144,15 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   in 26 of its 35 TDE1 library tunes.
 - The server route fetches only names that are in Power Hungry's current index. Never build a URL
   from user input.
+
+## Vercel
+
+- The project's settings (root directory `web`, Next.js, Node 24.x, files outside the root directory
+  included) live in Vercel, not in a `vercel.json`. Change them with
+  `npx vercel api /v9/projects/<id> -X PATCH --input - --scope lurchbulldog-3827s-projects`, which
+  uses the Vercel CLI login and keeps the token out of commands.
+- A `vck_…` key is an AI Gateway key. It cannot create or change projects.
+- A new project promotes its first deployment to production, whatever branch it came from.
+- Previews sit behind Vercel's Standard Protection. `npx vercel curl <url>` fetches one with the CLI
+  login; a plain request gets a 302 to the Vercel login.
+- Linking a GitHub repository needs the Vercel GitHub App installed on the account. No API installs it.
