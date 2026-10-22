@@ -56,17 +56,20 @@ function gearsOf(curve: CurveTableView): string {
   return `${from}→${to}`;
 }
 
-/** Wide-open shift point, then closed-throttle shift point, in the tune's mph. */
+/**
+ * Closed-throttle shift point, then wide-open shift point, in the tune's mph: the first and last
+ * rows, in the order the curve table lists them.
+ */
 function shiftPointRange(curve: CurveTableView): string {
-  const wideOpen = curve.rows[0]?.shiftPointMph;
-  const closed = curve.rows.at(-1)?.shiftPointMph;
-  return `${wideOpen}–${closed}`;
+  const closed = curve.rows[0]?.shiftPointMph;
+  const wideOpen = curve.rows.at(-1)?.shiftPointMph;
+  return `${closed}–${wideOpen}`;
 }
 
 /**
- * "1→2 27–7 · 2→3 43–18 · ... · 1 changed · gear hunting warning": the wide-open and
- * closed-throttle shift point of each curve, in curve order. The count shows only when a shift
- * point differs from the loaded tune, and the warning only when a downshift is above its upshift.
+ * "1→2 7–27 · 2→3 18–43 · ... · 1 changed · gear hunting warning": the closed-throttle and
+ * wide-open shift point of each curve, in curve order. The count shows only when a shift point
+ * differs from the loaded tune, and the warning only when a downshift is above its upshift.
  */
 export function summarizeShiftPoints(state: EditorState): string {
   const { upshifts, downshifts } = selectCurveTables(state);

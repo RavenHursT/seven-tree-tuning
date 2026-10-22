@@ -131,6 +131,8 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   Base Tune.
 - `TuneStatus` (loading messages and alerts) sits outside every module, so collapsing a module
   never hides an alert.
+- Each shift curve lists closed throttle at the top and wide open at the bottom, the opposite of
+  the order the tune stores. An edit names its row by `breakpointIndex`, never by list position.
 
 ## Hydra domain rules
 

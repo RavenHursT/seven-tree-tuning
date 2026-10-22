@@ -22,6 +22,10 @@ export interface CurveTableView {
   readonly curveId: ShiftCurveId;
   readonly title: string;
   readonly kind: ShiftKind;
+  /**
+   * Top to bottom as shown: closed throttle first, wide open last. The tune stores the opposite
+   * order, so an edit names its row by `breakpointIndex`, never by position in this list.
+   */
   readonly rows: readonly ShiftCurveRow[];
 }
 
@@ -61,21 +65,24 @@ export function selectCurveTables(state: EditorState): CurveTablesView {
       curveId: id,
       title: curve.definition.label,
       kind: curve.definition.kind,
-      rows: visible.map((point, row) => {
-        const speedRaw = speeds[point.index] ?? 0;
-        const originalRaw = originals[point.index] ?? 0;
-        return {
-          breakpointIndex: point.index,
-          throttleRaw: point.throttleRaw,
-          throttlePercent: throttleRawToPercent(point.throttleRaw),
-          isStep: row > 0 && visible[row - 1]?.throttleRaw === point.throttleRaw,
-          shiftPointMph: speedRawToMph(speedRaw),
-          shiftPointRaw: speedRaw,
-          speedoMph: shiftPointToSpeedoMph(speedRaw, factor),
-          originalShiftPointMph: speedRawToMph(originalRaw),
-          changed: speedRaw !== originalRaw,
-        };
-      }),
+      rows: visible
+        .map((point, row) => {
+          const speedRaw = speeds[point.index] ?? 0;
+          const originalRaw = originals[point.index] ?? 0;
+          return {
+            breakpointIndex: point.index,
+            throttleRaw: point.throttleRaw,
+            throttlePercent: throttleRawToPercent(point.throttleRaw),
+            isStep: row > 0 && visible[row - 1]?.throttleRaw === point.throttleRaw,
+            shiftPointMph: speedRawToMph(speedRaw),
+            shiftPointRaw: speedRaw,
+            speedoMph: shiftPointToSpeedoMph(speedRaw, factor),
+            originalShiftPointMph: speedRawToMph(originalRaw),
+            changed: speedRaw !== originalRaw,
+          };
+        })
+        // The tune stores wide open first; the page lists closed throttle first.
+        .reverse(),
     };
   });
 

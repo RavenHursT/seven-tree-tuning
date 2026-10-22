@@ -22,7 +22,7 @@ const T315_75R16 = parseTireSize("315/75R16")!;
 
 /** Wide-open and closed-throttle shift points of the Daily Driver tune, in mph. */
 const DAILY_DRIVER_SHIFT_POINTS =
-  "1→2 27–7 · 2→3 43–18 · 3→4 64.5–38 · 2→1 21–5.5 · 3→2 37–17.5 · 4→3 63–36";
+  "1→2 7–27 · 2→3 18–43 · 3→4 38–64.5 · 2→1 5.5–21 · 3→2 17.5–37 · 4→3 36–63";
 
 function loadedState(
   options: { image?: Uint8Array; format?: ContainerFormat; fileName?: string } = {},
@@ -174,7 +174,7 @@ describe("summarizeShiftPoints", () => {
     expect(summarizeShiftPoints(initialEditorState)).toBe("No tune loaded");
   });
 
-  it("gives the wide-open and closed-throttle shift point of each curve, in curve order", () => {
+  it("gives the closed-throttle and wide-open shift point of each curve, in curve order", () => {
     expect(summarizeShiftPoints(loadedState())).toBe(DAILY_DRIVER_SHIFT_POINTS);
   });
 
@@ -193,7 +193,7 @@ describe("summarizeShiftPoints", () => {
     });
 
     expect(summarizeShiftPoints(state)).toBe(
-      "1→2 27–7 · 2→3 43–18 · 3→4 64.5–40 · 2→1 21–5.5 · 3→2 37–17.5 · 4→3 63–36 · 1 changed",
+      "1→2 7–27 · 2→3 18–43 · 3→4 40–64.5 · 2→1 5.5–21 · 3→2 17.5–37 · 4→3 36–63 · 1 changed",
     );
   });
 
@@ -206,7 +206,7 @@ describe("summarizeShiftPoints", () => {
     });
 
     expect(summarizeShiftPoints(state)).toBe(
-      "1→2 27–7 · 2→3 43–18 · 3→4 64.5–38 · 2→1 22.5–5.5 · 3→2 37–17.5 · 4→3 63–36 · 1 changed",
+      "1→2 7–27 · 2→3 18–43 · 3→4 38–64.5 · 2→1 5.5–22.5 · 3→2 17.5–37 · 4→3 36–63 · 1 changed",
     );
   });
 
@@ -240,7 +240,7 @@ describe("summarizeShiftPoints", () => {
     });
 
     expect(summarizeShiftPoints(state)).toBe(
-      "1→2 27–8 · 2→3 43–18 · 3→4 64.5–38 · 2→1 21–5.5 · 3→2 37–17.5 · 4→3 63–36 · 1 changed",
+      "1→2 8–27 · 2→3 18–43 · 3→4 38–64.5 · 2→1 5.5–21 · 3→2 17.5–37 · 4→3 36–63 · 1 changed",
     );
   });
 
@@ -263,7 +263,7 @@ describe("summarizeShiftPoints", () => {
     });
 
     expect(summarizeShiftPoints(state)).toBe(
-      "1→2 27–7 · 2→3 43–18 · 3→4 64.5–38 · 2→1 21–5.5 · 3→2 37–17.5 · 4→3 63–40 · 1 changed · gear hunting warning",
+      "1→2 7–27 · 2→3 18–43 · 3→4 38–64.5 · 2→1 5.5–21 · 3→2 17.5–37 · 4→3 40–63 · 1 changed · gear hunting warning",
     );
   });
 
@@ -277,7 +277,7 @@ describe("summarizeShiftPoints", () => {
     });
 
     expect(summarizeShiftPoints(state)).toBe(
-      "1→2 27–7 · 2→3 43–18 · 3→4 64.5–35 · 2→1 21–5.5 · 3→2 37–17.5 · 4→3 63–36 · 1 changed · gear hunting warning",
+      "1→2 7–27 · 2→3 18–43 · 3→4 35–64.5 · 2→1 5.5–21 · 3→2 17.5–37 · 4→3 36–63 · 1 changed · gear hunting warning",
     );
   });
 
@@ -285,7 +285,7 @@ describe("summarizeShiftPoints", () => {
     const state = loadedState({ image: huntingImage() });
 
     expect(summarizeShiftPoints(state)).toBe(
-      "1→2 27–7 · 2→3 43–18 · 3→4 64.5–38 · 2→1 21–5.5 · 3→2 37–17.5 · 4→3 63–40 · gear hunting warning",
+      "1→2 7–27 · 2→3 18–43 · 3→4 38–64.5 · 2→1 5.5–21 · 3→2 17.5–37 · 4→3 40–63 · gear hunting warning",
     );
   });
 

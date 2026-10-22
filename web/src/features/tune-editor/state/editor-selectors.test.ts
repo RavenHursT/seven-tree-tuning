@@ -93,31 +93,32 @@ describe("selectCurveTables", () => {
     ]);
   });
 
-  it("shows each real breakpoint down to closed throttle and hides the padding", () => {
+  it("lists each real breakpoint from closed throttle up to wide open, and hides the padding", () => {
     const [up12] = selectCurveTables(loadedState()).upshifts;
-    expect(up12?.rows.map((row) => row.throttleRaw)).toEqual([255, 168, 168, 125, 75, 50, 0]);
+    expect(up12?.rows.map((row) => row.throttleRaw)).toEqual([0, 50, 75, 125, 168, 168, 255]);
     expect(up12?.rows.map((row) => row.isStep)).toEqual([
+      false,
+      false,
       false,
       false,
       true,
       false,
       false,
-      false,
-      false,
     ]);
-    expect(up12?.rows.map((row) => row.shiftPointMph)).toEqual([27, 27, 21, 14, 9, 7, 7]);
+    expect(up12?.rows.map((row) => row.shiftPointMph)).toEqual([7, 7, 9, 14, 21, 27, 27]);
     expect(up12?.rows.map((row) => row.shiftPointRaw)).toEqual([
-      0x36, 0x36, 0x2a, 0x1c, 0x12, 0x0e, 0x0e,
+      0x0e, 0x0e, 0x12, 0x1c, 0x2a, 0x36, 0x36,
     ]);
-    expect(up12?.rows[0]?.throttlePercent).toBe(100);
-    expect(up12?.rows[1]?.throttlePercent).toBeCloseTo(65.88, 2);
-    expect(up12?.rows.map((row) => row.breakpointIndex)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(up12?.rows.at(-1)?.throttlePercent).toBe(100);
+    expect(up12?.rows.at(-2)?.throttlePercent).toBeCloseTo(65.88, 2);
+    // Edits address a row by its breakpoint, so the reversed order changes no stored byte.
+    expect(up12?.rows.map((row) => row.breakpointIndex)).toEqual([6, 5, 4, 3, 2, 1, 0]);
   });
 
   it("shows speedometer mph for the fitted tires", () => {
     const state = editorReducer(loadedState(), { type: "fittedTireChanged", tire: T315_75R16 });
     const up34 = selectCurveTables(state).upshifts[2];
-    const closed = up34?.rows.at(-1);
+    const closed = up34?.rows[0];
     expect(closed?.shiftPointMph).toBe(38);
     expect(closed?.speedoMph).toBeCloseTo(41.442, 3);
   });
@@ -129,9 +130,9 @@ describe("selectCurveTables", () => {
       index: 5,
       mph: 35,
     });
-    const closed = selectCurveTables(state).upshifts[2]?.rows.at(-1);
+    const closed = selectCurveTables(state).upshifts[2]?.rows[0];
     expect(closed).toMatchObject({ shiftPointMph: 35, originalShiftPointMph: 38, changed: true });
-    expect(selectCurveTables(state).upshifts[2]?.rows[0]?.changed).toBe(false);
+    expect(selectCurveTables(state).upshifts[2]?.rows.at(-1)?.changed).toBe(false);
   });
 });
 

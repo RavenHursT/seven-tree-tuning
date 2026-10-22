@@ -629,6 +629,30 @@ describe("page modules", () => {
         "4→3 (out of overdrive)",
       ]);
     });
+
+    it("lists each shift curve from closed throttle at the top to wide open at the bottom", async () => {
+      const user = userEvent.setup();
+      renderEditor();
+      await openTune(user);
+      const shiftPoints = screen.getAllByRole("textbox", { name: /^1→2, .* shift point \(mph\)$/ });
+      const table = shiftPoints[0]?.closest("table");
+      if (!table) throw new Error("No table around the 1→2 shift points");
+
+      expect(
+        within(table)
+          .getAllByRole("rowheader")
+          .map((cell) => cell.textContent),
+      ).toEqual(["Closed", "20%", "29%", "49%", "66% step", "66%", "WOT"]);
+      expect(shiftPoints.map((input) => (input as HTMLInputElement).value)).toEqual([
+        "7.0",
+        "7.0",
+        "9.0",
+        "14.0",
+        "21.0",
+        "27.0",
+        "27.0",
+      ]);
+    });
   });
 
   describe("before a tune is loaded", () => {
@@ -805,7 +829,7 @@ describe("page modules", () => {
       expect(curveInput("3→4 (overdrive)", "0%", "speedometer")).toHaveValue("41.4");
     });
 
-    it("collapses Shiftpoints to the wide-open and closed-throttle points, and expands it back to the fields", async () => {
+    it("collapses Shiftpoints to the closed-throttle and wide-open points, and expands it back to the fields", async () => {
       const user = userEvent.setup();
       renderEditor();
       await openTune(user);
@@ -821,7 +845,7 @@ describe("page modules", () => {
       ).not.toBeInTheDocument();
       expect(
         within(moduleCard("Shiftpoints")).getByText(
-          "1→2 27–7 · 2→3 43–18 · 3→4 64.5–40 · 2→1 21–5.5 · 3→2 37–17.5 · 4→3 63–36 · 1 changed",
+          "1→2 7–27 · 2→3 18–43 · 3→4 40–64.5 · 2→1 5.5–21 · 3→2 17.5–37 · 4→3 36–63 · 1 changed",
         ),
       ).toBeInTheDocument();
 
