@@ -296,6 +296,11 @@ With `HYDRA_CHIP_SERIAL` set, the tests decode every tune in `tunes/` and check 
 `HYDRA_EFU_DIR=<folder>` adds the same decode check for a folder of PHP library `.efu` files. Do not
 commit the serial, decrypted images or PHP's files.
 
+GitHub Actions runs these checks on every pull request (`.github/workflows/ci.yml`). Job `unit` runs
+`npm run typecheck`, `npm run lint`, `npm run format:check` and `npm test`. Job `e2e` runs
+`npm run test:e2e` in Chromium and, when it fails, attaches the Playwright report to the run for 7
+days. CI does not set `HYDRA_CHIP_SERIAL` or `HYDRA_EFU_DIR`, so the tests that need them skip.
+
 ### Deployment (Vercel)
 
 The Vercel project `seven-tree-tuning` is linked to this repository through the Vercel GitHub App.
