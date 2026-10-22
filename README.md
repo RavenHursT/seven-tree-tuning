@@ -296,6 +296,18 @@ With `HYDRA_CHIP_SERIAL` set, the tests decode every tune in `tunes/` and check 
 `HYDRA_EFU_DIR=<folder>` adds the same decode check for a folder of PHP library `.efu` files. Do not
 commit the serial, decrypted images or PHP's files.
 
+### Deployment (Vercel)
+
+The Vercel project `seven-tree-tuning` is linked to this repository through the Vercel GitHub App.
+
+- **Production:** every push to `main` deploys to <https://seven-tree-tuning.vercel.app>.
+- **Previews:** every push to a pull request branch deploys a preview, and Vercel comments the link
+  on the pull request. Previews need a Vercel login (Vercel's Standard Protection); production is
+  public.
+- **Settings:** framework Next.js, root directory `web`, Node 24.x, and "include files outside the
+  root directory" on, because the app imports `packages/hydra`. The app needs no environment
+  variables.
+
 ### Code layout
 
 | Path | Contents |
