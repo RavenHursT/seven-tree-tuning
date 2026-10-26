@@ -15,6 +15,7 @@ import {
 
 import { resetGrid, scaleGrid, setGridCell } from "./grid-edits";
 import type { LoadedTune, TuneSource, TuneSourceKind } from "./loaded-tune";
+import { editTransmission, type TransmissionAction } from "./transmission-edits";
 
 /** A .hcf file picked before a valid chip serial was entered. */
 export interface PendingFile {
@@ -47,7 +48,8 @@ type EditAction =
   | { type: "gridCellChanged"; gridId: GridId; row: number; col: number; raw: number }
   | { type: "gridScaled"; gridId: GridId; factor: number }
   | { type: "gridReset"; gridId: GridId }
-  | { type: "tireCompensationApplied" };
+  | { type: "tireCompensationApplied" }
+  | TransmissionAction;
 
 export type EditorAction =
   | EditAction
@@ -159,8 +161,15 @@ function editValues(state: EditorState, action: EditAction): EditorState {
     case "tireCompensationApplied": {
       const factor = tireCompensationFactor(state.fittedTire, state.calibrationTire);
       const scaled = scaleShiftSpeeds(tune.originalValues, factor);
-      return { ...state, values: { ...scaled, warmIdleRaw: values.warmIdleRaw } };
+      // Tire compensation changes the shift speeds only; every other edit stays as it is.
+      return { ...state, values: { ...values, shiftSpeedsRaw: scaled.shiftSpeedsRaw } };
     }
+    case "lockupSpeedChanged":
+    case "lockupSpeedometerChanged":
+    case "lockupNeverSet":
+    case "epcValueChanged":
+    case "functionReset":
+      return editTransmission(state, tune, values, action);
   }
 }
 

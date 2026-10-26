@@ -55,8 +55,9 @@ function epcFunction(id: EpcFunctionId, label: string, address: number): EpcFunc
 /**
  * Converter lockup speeds: y = vehicle mph x 2, the same speed byte as the shift curves. Lock
  * functions give the speed above which the converter locks, unlock functions the speed below which
- * it releases. Second and third gear have ten pairs, fourth gear four. A y of 0xFE (127 mph) means
- * the converter never locks (or never unlocks) there.
+ * it releases. Second and third gear have ten pairs, fourth gear four. A y of 0xFE (127 mph) in a
+ * lock function means the converter never locks there. In an unlock function it means the
+ * converter unlocks below 127 mph, so it cannot stay locked there.
  */
 export const TDE1_LOCKUP_FUNCTIONS: readonly LockupFunctionDefinition[] = [
   lockupFunction("lock-2", "2nd gear lock", 0x1468c, 10),

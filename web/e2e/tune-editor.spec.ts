@@ -101,7 +101,7 @@ test.describe("tune editor", () => {
     await editor.open();
     await editor.openUpload(hcfUpload());
     // The test window is 1280 px wide: the narrowest width that puts three curves in a row.
-    const tables = page.locator('[data-curve-id] [data-slot="table-container"]');
+    const tables = page.locator('#shift-points [data-slot="table-container"]');
     await expect(tables).toHaveCount(6);
 
     const overflows = await tables.evaluateAll((elements) =>

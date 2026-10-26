@@ -81,4 +81,11 @@ describe("ShiftOverlapAlert", () => {
     expect(screen.getByRole("status")).toBe(region);
     expect(region).toBeEmptyDOMElement();
   });
+
+  it("shows the title it is given instead of the gear hunting title", () => {
+    render(<ShiftOverlapAlert overlaps={overlaps} title="Possible converter cycling" />);
+
+    expect(screen.getByText("Possible converter cycling")).toBeInTheDocument();
+    expect(screen.queryByText("Possible gear hunting")).not.toBeInTheDocument();
+  });
 });

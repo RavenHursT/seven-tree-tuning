@@ -9,8 +9,9 @@ import type { EpcFunctionId, LockupFunctionId } from "./tde1-items";
 export type ByteFunctionGroup = "lockup" | "line-pressure";
 
 /**
- * The y byte of a lockup function that means "never": 127 mph, which no vehicle reaches. The PCM
- * then does not lock (or does not unlock) in that gear at that pedal position.
+ * The y byte of a lockup function that means 127 mph, which no vehicle reaches. In a lock function
+ * the PCM then never locks in that gear at that pedal position. In an unlock function the PCM
+ * unlocks below 127 mph, so the converter cannot stay locked there.
  */
 export const LOCKUP_NEVER_SPEED_RAW = 0xfe;
 

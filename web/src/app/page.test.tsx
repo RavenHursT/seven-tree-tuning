@@ -44,7 +44,7 @@ describe("TuneEditorPage layout", () => {
     expect(Array.from(grid.children)).toEqual([left, moduleCard("Tires")]);
   });
 
-  it("puts Shiftpoints, Fuel and power and Timing and ICP below both columns, directly in the main area", () => {
+  it("puts Shiftpoints, Converter lockup, Shift firmness, Fuel and power and Timing and ICP below both columns, in that order", () => {
     render(<TuneEditorPage />);
     const grid = moduleCard("Base Tune").parentElement?.parentElement as HTMLElement;
     const main = screen.getByRole("main");
@@ -52,6 +52,8 @@ describe("TuneEditorPage layout", () => {
     expect(Array.from(main.children)).toEqual([
       grid,
       moduleCard("Shiftpoints"),
+      moduleCard("Converter lockup"),
+      moduleCard("Shift firmness"),
       moduleCard("Fuel and power"),
       moduleCard("Timing and ICP"),
     ]);

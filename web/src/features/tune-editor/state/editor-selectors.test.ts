@@ -2,7 +2,12 @@ import { scaleShiftSpeeds, type TireSize, type TuneValues } from "@seven-tree/hy
 import { buildTde1Image } from "@seven-tree/hydra/testing";
 import { describe, expect, it } from "vitest";
 
-import { editorReducer, initialEditorState, type EditorState } from "./editor-reducer";
+import {
+  editorReducer,
+  initialEditorState,
+  type EditorAction,
+  type EditorState,
+} from "./editor-reducer";
 import {
   selectChangeSummary,
   selectChipSerialError,
@@ -175,17 +180,23 @@ describe("selectChangeSummary", () => {
       index: 5,
       mph: 35,
     });
-    expect(selectChangeSummary(state)).toEqual({
-      changedShiftPoints: 1,
-      idleChanged: false,
-      changedGridCells: 0,
-    });
+    expect(selectChangeSummary(state)).toMatchObject({ changedShiftPoints: 1, idleChanged: false });
 
     state = editorReducer(state, { type: "warmIdleChanged", rpm: 700 });
-    expect(selectChangeSummary(state)).toEqual({
-      changedShiftPoints: 1,
-      idleChanged: true,
-      changedGridCells: 0,
+    expect(selectChangeSummary(state)).toMatchObject({ changedShiftPoints: 1, idleChanged: true });
+  });
+
+  it("counts changed lockup points and firmness values", () => {
+    const state = [
+      { type: "lockupSpeedChanged", functionId: "lock-4", index: 0, mph: 33 },
+      { type: "lockupSpeedChanged", functionId: "unlock-3", index: 0, mph: 20 },
+      { type: "epcValueChanged", functionId: "epc-1-2", index: 0, value: 20 },
+    ].reduce((current, action) => editorReducer(current, action as EditorAction), loadedState());
+
+    expect(selectChangeSummary(state)).toMatchObject({
+      changedShiftPoints: 0,
+      changedLockupPoints: 2,
+      changedFirmnessPoints: 1,
     });
   });
 
@@ -194,6 +205,8 @@ describe("selectChangeSummary", () => {
       changedShiftPoints: 0,
       idleChanged: false,
       changedGridCells: 0,
+      changedLockupPoints: 0,
+      changedFirmnessPoints: 0,
     });
   });
 });
