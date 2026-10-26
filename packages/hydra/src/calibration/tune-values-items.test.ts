@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { readUint16Le } from "./bytes";
 import { readEpcFunctions, readLockupFunctions } from "./byte-function";
 import type { ByteFunction } from "./byte-function";
 import { assertOnlyEditableChanges, changedOffsets } from "./edit-guard";
@@ -145,19 +146,23 @@ describe("writeTuneValues: the new items", () => {
     expect(() => assertOnlyEditableChanges(base, written)).not.toThrow();
   });
 
-  it("never touches the stored rows and columns of the base pulse width that the PCM does not read", () => {
+  it("writes the last two rows and columns of the base pulse width, which a few tunes use", () => {
     const definition = grid("base-pulse-width");
     const cells = patternedGridCells(definition).map((cell) => (cell + 1) % 65536);
     const written = writeTuneValues(base, {
       ...values,
       gridsRaw: { ...values.gridsRaw, "base-pulse-width": cells },
     });
-    for (let column = 11; column < 13; column++) {
-      const offset = definition.address + 2 * column;
-      expect([written[offset], written[offset + 1]]).toEqual([base[offset], base[offset + 1]]);
+    for (const [row, col] of [
+      [0, 11],
+      [0, 12],
+      [12, 0],
+      [12, 12],
+    ] as const) {
+      const offset = gridCellOffset(definition, row, col);
+      expect(readUint16Le(written, offset)).toBe(cells[row * 13 + col]);
     }
-    const lastRow = definition.address + 2 * 12 * 13;
-    expect(written.slice(lastRow, lastRow + 26)).toEqual(base.slice(lastRow, lastRow + 26));
+    expect(readGrid(written, definition).cells).toEqual(cells);
   });
 
   it("rejects a lockup speed that is not a whole number from 0 to 255", () => {
@@ -308,8 +313,8 @@ describe("setGridCellRaw", () => {
 
   it("rejects a cell outside the exposed rows and columns, and a value that is not a number", () => {
     const definition = grid("base-pulse-width");
-    expect(() => setGridCellRaw(values, definition, 11, 0, 5)).toThrow(RangeError);
-    expect(() => setGridCellRaw(values, definition, 0, 11, 5)).toThrow(RangeError);
+    expect(() => setGridCellRaw(values, definition, 13, 0, 5)).toThrow(RangeError);
+    expect(() => setGridCellRaw(values, definition, 0, 13, 5)).toThrow(RangeError);
     expect(() => setGridCellRaw(values, definition, 0, 0, Number.NaN)).toThrow(RangeError);
   });
 });

@@ -1,10 +1,12 @@
 import { Suspense } from "react";
 
 import { BaseTuneModule } from "@/features/tune-editor/sections/base-tune-module";
+import { FuelPowerModule } from "@/features/tune-editor/sections/fuel-power-module";
 import { GenerateSection } from "@/features/tune-editor/sections/generate-section";
 import { IdleModule } from "@/features/tune-editor/sections/idle-module";
 import { LibraryTunes, LibraryTunesFallback } from "@/features/tune-editor/sections/library-tunes";
 import { ShiftPointsModule } from "@/features/tune-editor/sections/shift-points-module";
+import { TimingIcpModule } from "@/features/tune-editor/sections/timing-icp-module";
 import { TiresModule } from "@/features/tune-editor/sections/tires-module";
 import { TuneStatus } from "@/features/tune-editor/sections/tune-status";
 import { UploadSection } from "@/features/tune-editor/sections/upload-section";
@@ -30,6 +32,8 @@ export default function TuneEditorPage() {
           <TiresModule />
         </div>
         <ShiftPointsModule />
+        <FuelPowerModule />
+        <TimingIcpModule />
       </main>
       <section
         aria-label="Generate tune"

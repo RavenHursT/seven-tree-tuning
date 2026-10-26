@@ -92,7 +92,7 @@ describe("grid definitions", () => {
     ]);
     expect(shape).toEqual([
       [0x125cc, 3, 16, 16, 2, false],
-      [0x1262c, 11, 11, 13, 2, false],
+      [0x1262c, 13, 13, 13, 2, false],
       [0x1277e, 11, 16, 16, 2, false],
       [0x12a5e, 15, 16, 16, 2, true],
       [0x12c3e, 10, 11, 11, 1, false],
@@ -106,9 +106,11 @@ describe("grid definitions", () => {
     ]);
   });
 
-  it("uses the 13 x 13 physical layout of the base pulse width and exposes the 11 x 11 the PCM reads", () => {
+  it("exposes all 13 x 13 stored cells of the base pulse width", () => {
     const grid = byId("base-pulse-width");
-    expect([grid.rows, grid.cols, grid.rowStride]).toEqual([11, 11, 13]);
+    expect([grid.rows, grid.cols, grid.rowStride]).toEqual([13, 13, 13]);
+    expect(gridCellOffsets(grid)).toHaveLength(338);
+    expect(Math.max(...gridCellOffsets(grid))).toBe(0x1262c + 2 * 169 - 1);
   });
 
   it("ends the IPR duty grid at 0x13a65, the last of 121 words, not at 0x13a5d", () => {

@@ -49,8 +49,9 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
 
   /** Runs `proceed` now, or after the person confirms when it would discard their changes. */
   function confirmDiscard(message: string, proceed: () => void, { shiftPointsOnly = false } = {}) {
-    const { changedShiftPoints, idleChanged } = selectChangeSummary(state);
-    const loses = changedShiftPoints > 0 || (!shiftPointsOnly && idleChanged);
+    const { changedShiftPoints, idleChanged, changedGridCells } = selectChangeSummary(state);
+    const loses =
+      changedShiftPoints > 0 || (!shiftPointsOnly && (idleChanged || changedGridCells > 0));
     if (loses) setDiscardRequest({ message, proceed });
     else proceed();
   }

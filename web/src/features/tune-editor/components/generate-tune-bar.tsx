@@ -18,6 +18,8 @@ export interface GenerateTuneBarProps {
   onFileNameChange(value: string): void;
   changedShiftPoints: number;
   idleChanged: boolean;
+  /** Cells edited in the fuel, power, timing and ICP grids. */
+  changedGridCells?: number;
   disabledReason?: string;
   generating?: boolean;
   onGenerate(): void;
@@ -31,13 +33,21 @@ export interface GenerateTuneBarProps {
  */
 const UNAVAILABLE_CLASS = "aria-disabled:pointer-events-none aria-disabled:opacity-50";
 
-function summarizeChanges(changedShiftPoints: number, idleChanged: boolean): string {
+function summarizeChanges(
+  changedShiftPoints: number,
+  idleChanged: boolean,
+  changedGridCells: number,
+): string {
   const parts: string[] = [];
   if (changedShiftPoints > 0) {
     const noun = changedShiftPoints === 1 ? "shift point" : "shift points";
     parts.push(`${changedShiftPoints} ${noun} changed`);
   }
   if (idleChanged) parts.push("idle changed");
+  if (changedGridCells > 0) {
+    const noun = changedGridCells === 1 ? "grid cell" : "grid cells";
+    parts.push(`${changedGridCells} ${noun} changed`);
+  }
   if (parts.length === 0) return "No changes";
   const summary = parts.join(" · ");
   return summary.charAt(0).toUpperCase() + summary.slice(1);
@@ -149,13 +159,14 @@ export function GenerateTuneBar({
   onFileNameChange,
   changedShiftPoints,
   idleChanged,
+  changedGridCells = 0,
   disabledReason,
   generating = false,
   onGenerate,
   onResetAll,
 }: GenerateTuneBarProps) {
   const reasonId = React.useId();
-  const nothingChanged = changedShiftPoints === 0 && !idleChanged;
+  const nothingChanged = changedShiftPoints === 0 && !idleChanged && changedGridCells === 0;
 
   return (
     <div
@@ -165,7 +176,7 @@ export function GenerateTuneBar({
       <OutputFileField fileName={fileName} onFileNameChange={onFileNameChange} />
       <div className="flex flex-col gap-2 md:items-end">
         <p className="text-xs text-muted-foreground">
-          {summarizeChanges(changedShiftPoints, idleChanged)}
+          {summarizeChanges(changedShiftPoints, idleChanged, changedGridCells)}
         </p>
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
           {onResetAll ? (

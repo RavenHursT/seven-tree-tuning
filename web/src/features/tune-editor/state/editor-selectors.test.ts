@@ -175,16 +175,25 @@ describe("selectChangeSummary", () => {
       index: 5,
       mph: 35,
     });
-    expect(selectChangeSummary(state)).toEqual({ changedShiftPoints: 1, idleChanged: false });
+    expect(selectChangeSummary(state)).toEqual({
+      changedShiftPoints: 1,
+      idleChanged: false,
+      changedGridCells: 0,
+    });
 
     state = editorReducer(state, { type: "warmIdleChanged", rpm: 700 });
-    expect(selectChangeSummary(state)).toEqual({ changedShiftPoints: 1, idleChanged: true });
+    expect(selectChangeSummary(state)).toEqual({
+      changedShiftPoints: 1,
+      idleChanged: true,
+      changedGridCells: 0,
+    });
   });
 
   it("is empty before a tune is loaded", () => {
     expect(selectChangeSummary(initialEditorState)).toEqual({
       changedShiftPoints: 0,
       idleChanged: false,
+      changedGridCells: 0,
     });
   });
 });

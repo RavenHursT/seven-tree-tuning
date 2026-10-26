@@ -13,8 +13,8 @@ import { buildTde1Image } from "./test-images";
 describe("editableOffsets", () => {
   const editable = editableOffsets();
 
-  it("holds 2818 offsets: 60 shift-speed, 4 warm-idle, 48 lockup, 30 line-pressure and 2676 grid bytes", () => {
-    expect(editable.size).toBe(60 + 4 + 48 + 30 + 2676);
+  it("holds 2914 offsets: 60 shift-speed, 4 warm-idle, 48 lockup, 30 line-pressure and 2772 grid bytes", () => {
+    expect(editable.size).toBe(60 + 4 + 48 + 30 + 2772);
   });
 
   it("holds every shift-speed byte of every curve, padding included", () => {
@@ -79,11 +79,12 @@ describe("editableOffsets: lockup, line-pressure and grid bytes", () => {
     }
   });
 
-  it("leaves out the stored rows and columns of the base pulse width that the PCM does not read", () => {
+  it("holds the last two rows and columns of the base pulse width, which a few tunes reach", () => {
     const definition = TDE1.grids[1];
     if (!definition) throw new Error("missing definition");
-    expect(editable.has(definition.address + 2 * 11)).toBe(false);
-    expect(editable.has(definition.address + 2 * 12 * 13)).toBe(false);
+    expect(editable.has(definition.address + 2 * 11)).toBe(true);
+    expect(editable.has(definition.address + 2 * 12 * 13)).toBe(true);
+    expect(editable.has(definition.address + 2 * 169 - 1)).toBe(true);
   });
 
   it("stops at the last byte of the IPR duty grid, 0x13a65", () => {
@@ -151,7 +152,7 @@ describe("assertOnlyEditableChanges", () => {
 
   it("refuses a changed byte just outside a grid", () => {
     const base = buildTde1Image();
-    for (const offset of [0x125cc - 1, 0x13a66, 0x1262c + 2 * 11]) {
+    for (const offset of [0x125cc - 1, 0x13a66]) {
       const edited = new Uint8Array(base);
       edited[offset] = (edited[offset] ?? 0) ^ 0x01;
       expect(() => assertOnlyEditableChanges(base, edited)).toThrowError(

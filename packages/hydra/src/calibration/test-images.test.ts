@@ -71,13 +71,13 @@ describe("buildTde1Image: grids", () => {
     expect(patternedGridCells(signed ?? TDE1.grids[0]!).some((cell) => cell < 0)).toBe(true);
   });
 
-  it("leaves the stored columns the PCM does not read as background", () => {
-    const base = buildTde1Image({ grids: { "base-pulse-width": new Array(121).fill(0) } });
+  it("fills all 13 x 13 cells of the base pulse width from the options", () => {
+    const base = buildTde1Image({ grids: { "base-pulse-width": new Array(169).fill(0) } });
     const grid = TDE1.grids[1];
     if (!grid) throw new Error("no grid");
-    const hidden = grid.address + 2 * 11;
-    expect(base[hidden]).toBe(image[hidden]);
     expect(base[gridCellOffset(grid, 0, 0)]).toBe(0);
+    expect(base[gridCellOffset(grid, 12, 12)]).toBe(0);
+    expect(readGrid(base, grid).cells).toEqual(new Array(169).fill(0));
   });
 
   it("replaces the cells of a grid named in the options", () => {
@@ -92,8 +92,16 @@ describe("buildTde1Image: grids", () => {
       const axes = readGridAxes(image, definition);
       expect(axes.rowBreakpointsRaw).toHaveLength(definition.rows);
       expect(axes.colBreakpointsRaw).toHaveLength(definition.cols);
-      expect(axes.rowBreakpointsRaw.every((value) => value !== undefined)).toBe(true);
-      expect(axes.colBreakpointsRaw.every((value) => value !== undefined)).toBe(true);
+      // The Daily Driver base pulse width axes stop at index 10; its last two rows and columns
+      // are stored but not reached.
+      const reached = definition.id === "base-pulse-width" ? 11 : definition.rows;
+      const reachedCols = definition.id === "base-pulse-width" ? 11 : definition.cols;
+      expect(axes.rowBreakpointsRaw.slice(0, reached).every((value) => value !== undefined)).toBe(
+        true,
+      );
+      expect(
+        axes.colBreakpointsRaw.slice(0, reachedCols).every((value) => value !== undefined),
+      ).toBe(true);
     }
   });
 

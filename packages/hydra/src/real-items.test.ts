@@ -63,7 +63,13 @@ function expectFunctionStructure(image: Uint8Array): void {
   }
 }
 
-/** Every grid has cells within the range of its cell size and a breakpoint for every row and column. */
+/** The base pulse width stores 13 x 13 cells, but the axes of the owner's tunes stop at index 10. */
+const BASE_PULSE_WIDTH_REACHED = 11;
+
+/**
+ * Every grid has cells within the range of its cell size and a breakpoint for every row and column.
+ * The last two rows and columns of the base pulse width may be unreached.
+ */
 function expectGridStructure(image: Uint8Array): void {
   for (const { definition, cells } of readGrids(image)) {
     const [min, max] = gridValueRange(definition);
@@ -73,9 +79,10 @@ function expectGridStructure(image: Uint8Array): void {
       definition.label,
     ).toBe(true);
     const axes = readGridAxes(image, definition);
+    const reached = definition.id === "base-pulse-width" ? BASE_PULSE_WIDTH_REACHED : undefined;
     for (const breakpoints of [axes.rowBreakpointsRaw, axes.colBreakpointsRaw]) {
       expect(
-        breakpoints.every((value) => value !== undefined),
+        breakpoints.slice(0, reached).every((value) => value !== undefined),
         definition.label,
       ).toBe(true);
     }
@@ -85,7 +92,8 @@ function expectGridStructure(image: Uint8Array): void {
 function expectBreakpointsInOrder(image: Uint8Array): void {
   for (const definition of TDE1.grids) {
     const axes = readGridAxes(image, definition);
-    for (const breakpoints of [axes.rowBreakpointsRaw, axes.colBreakpointsRaw]) {
+    for (const all of [axes.rowBreakpointsRaw, axes.colBreakpointsRaw]) {
+      const breakpoints = all.filter((value) => value !== undefined);
       const steps = breakpoints
         .slice(1)
         .map((value, index) => (value ?? 0) - (breakpoints[index] ?? 0));

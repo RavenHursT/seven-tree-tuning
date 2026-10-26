@@ -20,8 +20,7 @@ function describeOffsets(offsets: readonly number[]): string {
  * Image offsets an edit may change: every shift-speed byte of every curve (60 for TDE1, padding
  * included), both bytes of both warm-idle values (4), the y byte of every pair of the lockup (48)
  * and line-pressure (30) functions, padding included, and every byte of every exposed grid cell
- * (2676). Pedal bytes, axis functions, unused functions and the stored grid cells the PCM does not
- * read are not editable.
+ * (2772). Pedal bytes, axis functions and unused functions are not editable.
  */
 export function editableOffsets(strategy: StrategyDefinition = TDE1): ReadonlySet<number> {
   const offsets = new Set<number>();
