@@ -9,6 +9,8 @@ import {
   closedPedalIndex,
   EfuDecoder,
   findByteFunctionIssues,
+  findCalibrationIssues,
+  findGridAxisIssues,
   gridValueRange,
   HcfCodec,
   readEpcFunctions,
@@ -71,6 +73,8 @@ const BASE_PULSE_WIDTH_REACHED = 11;
  * The last two rows and columns of the base pulse width may be unreached.
  */
 function expectGridStructure(image: Uint8Array): void {
+  expect(findGridAxisIssues(image)).toEqual([]);
+  expect(findCalibrationIssues(image)).toEqual([]);
   for (const { definition, cells } of readGrids(image)) {
     const [min, max] = gridValueRange(definition);
     expect(cells, definition.label).toHaveLength(definition.rows * definition.cols);

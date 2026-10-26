@@ -96,6 +96,8 @@ const PUBLIC_VALUES = [
   "editableOffsets",
   "evaluateShiftSpeedRaw",
   "findByteFunctionIssues",
+  "findCalibrationIssues",
+  "findGridAxisIssues",
   "findLayoutIssues",
   "findShiftOverlaps",
   "formatTireSize",

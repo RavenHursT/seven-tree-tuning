@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { CALIBRATION_IMAGE_SIZE } from "../image";
 import {
+  findGridAxisIssues,
   gridCellOffset,
   gridCellOffsets,
   gridValueRange,
@@ -14,6 +15,7 @@ import {
 } from "./grid";
 import type { GridAxisDefinition, GridDefinition } from "./grid";
 import { TDE1_GRIDS } from "./tde1-items";
+import { buildTde1Image } from "./test-images";
 
 function grid(id: string): GridDefinition {
   const found = TDE1_GRIDS.find((candidate) => candidate.id === id);
@@ -298,5 +300,85 @@ describe("readGridAxes", () => {
 
   it("rejects an image that is not 256 KiB", () => {
     expect(() => readGridAxes(new Uint8Array(8), maxFuel)).toThrow(RangeError);
+  });
+});
+
+describe("findGridAxisIssues", () => {
+  const rpmOffset = maxFuel.colAxis.functionOffset;
+  const eotOffset = grid("pulse-width-multiplier").colAxis.functionOffset;
+
+  it("finds nothing in an image with well-formed axis functions", () => {
+    expect(findGridAxisIssues(buildTde1Image())).toEqual([]);
+  });
+
+  it("reports an unsigned axis that does not start at 0xFFFF", () => {
+    const image = buildTde1Image();
+    image[rpmOffset] = 0xfe;
+    const messages = findGridAxisIssues(image).map((issue) => issue.message);
+    expect(messages).toContain(
+      "Maximum fuel, columns (Engine speed): the first value is 65534, not 65535.",
+    );
+  });
+
+  it("reports a signed axis that does not start at 0x7FFF", () => {
+    const image = buildTde1Image();
+    image[eotOffset + 1] = 0x70;
+    const messages = findGridAxisIssues(image).map((issue) => issue.message);
+    expect(messages).toContain(
+      `Pulse width multiplier, columns (${grid("pulse-width-multiplier").colAxis.name}): the first value is 28927, not 32767.`,
+    );
+  });
+
+  it("reports x values that go up", () => {
+    const image = buildTde1Image();
+    // The third pair of the rpm function: 0x3db8 -> 0x50b8, above the 0x4010 before it.
+    image[rpmOffset + 8 + 1] = 0x50;
+    const messages = findGridAxisIssues(image).map((issue) => issue.message);
+    expect(messages).toContain(
+      "Maximum fuel, columns (Engine speed): the values go up from 16400 to 20664. They can only stay the same or go down.",
+    );
+  });
+
+  it("compares the x values of a signed axis as signed numbers", () => {
+    const image = buildTde1Image();
+    putWordFunction(image, eotOffset, [
+      [0x7fff, 0],
+      [100, 256],
+      [-100, 512],
+      [-32768, 15 * 256],
+    ]);
+    expect(
+      findGridAxisIssues(image).filter((issue) => issue.message.includes("multiplier, columns")),
+    ).toEqual([]);
+  });
+
+  it("reports an axis function that never ends", () => {
+    const image = buildTde1Image();
+    const pairs: Array<[number, number]> = Array.from({ length: 40 }, (_unused, index) => [
+      index === 0 ? 0xffff : 4000 - index,
+      256,
+    ]);
+    putWordFunction(image, rpmOffset, pairs);
+    const messages = findGridAxisIssues(image).map((issue) => issue.message);
+    expect(messages).toContain(
+      "Maximum fuel, columns (Engine speed): no end value is found. An unsigned axis ends with 0.",
+    );
+  });
+
+  it("reports a position past the last row or column", () => {
+    const image = buildTde1Image();
+    // The max fuel row axis has 3 rows: the last position is 2.
+    const rowOffset = maxFuel.rowAxis.functionOffset;
+    image[rowOffset + 3] = 0x03;
+    const messages = findGridAxisIssues(image).map((issue) => issue.message);
+    expect(messages).toContain(
+      "Maximum fuel, rows (Unidentified value): a position is 3, but the last row is 2.",
+    );
+  });
+
+  it("gives one issue for an image that is not 256 KiB", () => {
+    const issues = findGridAxisIssues(new Uint8Array(1000));
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.message).toContain("262144");
   });
 });

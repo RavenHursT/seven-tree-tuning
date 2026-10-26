@@ -39,6 +39,35 @@ describe("createLoadedTune", () => {
     expect(tune.image[0x14521]).toBe(0x36);
   });
 
+  it("refuses an image with a broken lockup function, in words the user can read", () => {
+    const image = buildTde1Image();
+    image[0x1468c] = 0xfe;
+
+    expect(() => createLoadedTune(image, source)).toThrow(UnsupportedCalibrationError);
+    expect(() => createLoadedTune(image, source)).toThrow(
+      "This file does not have the TDE1 layout the editor works on. 2nd gear lock: the first pedal value is 254, not 255.",
+    );
+  });
+
+  it("refuses an image with a broken line-pressure function", () => {
+    const image = buildTde1Image();
+    image[0x14844] = 0x10;
+
+    expect(() => createLoadedTune(image, source)).toThrow(
+      /^This file does not have the TDE1 layout the editor works on\. 2→3 line pressure: the first pedal value is 16, not 255\./,
+    );
+  });
+
+  it("refuses an image with a broken grid axis function", () => {
+    const image = buildTde1Image();
+    image[0x120a0] = 0x00;
+
+    expect(() => createLoadedTune(image, source)).toThrow(UnsupportedCalibrationError);
+    expect(() => createLoadedTune(image, source)).toThrow(
+      "This file does not have the TDE1 layout the editor works on. Maximum fuel, columns (Engine speed): the first value is 65280, not 65535.",
+    );
+  });
+
   it("rejects an image without the TDE1 shift-curve layout", () => {
     expect(() => createLoadedTune(new Uint8Array(262_144), source)).toThrow(
       UnsupportedCalibrationError,

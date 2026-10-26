@@ -1,5 +1,6 @@
 import { assertCalibrationImage } from "../image";
 import { readByte, readInt16Le, readUint16Le } from "./bytes";
+import type { LayoutIssue } from "./layout";
 import { TDE1 } from "./tde1";
 import type { StrategyDefinition } from "./tde1";
 import type { GridId } from "./tde1-items";
@@ -252,4 +253,81 @@ export function readGridAxes(image: Uint8Array, definition: GridDefinition): Gri
     rowBreakpointsRaw: readGridAxis(image, definition.rowAxis, definition.rows),
     colBreakpointsRaw: readGridAxis(image, definition.colAxis, definition.cols),
   };
+}
+
+type AxisSide = "row" | "column";
+
+const SIGNED_STOP = 0x7fff;
+const UNSIGNED_STOP = 0xffff;
+
+function firstValueIssue(points: readonly WordFunctionPoint[], signed: boolean) {
+  const stop = signed ? SIGNED_STOP : UNSIGNED_STOP;
+  const first = points[0]?.xRaw;
+  return first === stop ? undefined : `the first value is ${first}, not ${stop}.`;
+}
+
+function risingValueIssue(points: readonly WordFunctionPoint[]): string | undefined {
+  for (let index = 1; index < points.length; index++) {
+    const before = points[index - 1]?.xRaw;
+    const after = points[index]?.xRaw;
+    if (before !== undefined && after !== undefined && after > before) {
+      return `the values go up from ${before} to ${after}. They can only stay the same or go down.`;
+    }
+  }
+  return undefined;
+}
+
+function missingEndIssue(points: readonly WordFunctionPoint[], signed: boolean) {
+  const end = signed ? -32768 : 0;
+  if (points[points.length - 1]?.xRaw === end) return undefined;
+  const kind = signed ? "A signed" : "An unsigned";
+  return `no end value is found. ${kind} axis ends with ${end}.`;
+}
+
+function positionIssue(
+  points: readonly WordFunctionPoint[],
+  count: number,
+  side: AxisSide,
+): string | undefined {
+  const last = count - 1;
+  const past = points.find((point) => point.yRaw > last * 256);
+  if (!past) return undefined;
+  return `a position is ${Number((past.yRaw / 256).toFixed(2))}, but the last ${side} is ${last}.`;
+}
+
+function axisIssues(image: Uint8Array, definition: GridDefinition, side: AxisSide): LayoutIssue[] {
+  const axis = side === "row" ? definition.rowAxis : definition.colAxis;
+  const count = side === "row" ? definition.rows : definition.cols;
+  const points = readWordFunction(image, axis.functionOffset, axis.breakpointsSigned);
+  return [
+    firstValueIssue(points, axis.breakpointsSigned),
+    risingValueIssue(points),
+    missingEndIssue(points, axis.breakpointsSigned),
+    positionIssue(points, count, side),
+  ]
+    .filter((text): text is string => text !== undefined)
+    .map((text) => ({
+      message: `${definition.label}, ${side}s (${axis.name}): ${text}`,
+    }));
+}
+
+/**
+ * Checks that the axis function of every row and column of every grid has the proven layout: the
+ * first x is 0xFFFF (unsigned) or 0x7FFF (signed), x never rises, the function ends with x 0
+ * (unsigned) or -32768 (signed) within 32 pairs, and no position is past the last row or column.
+ * An image that is not 256 KiB gives one issue and no further checks.
+ */
+export function findGridAxisIssues(
+  image: Uint8Array,
+  strategy: StrategyDefinition = TDE1,
+): LayoutIssue[] {
+  try {
+    assertCalibrationImage(image);
+  } catch (error) {
+    return [{ message: (error as Error).message }];
+  }
+  return strategy.grids.flatMap((definition) => [
+    ...axisIssues(image, definition, "row"),
+    ...axisIssues(image, definition, "column"),
+  ]);
 }

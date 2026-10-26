@@ -98,7 +98,7 @@ describe("describeError", () => {
       "The chip serial does not match this file.",
     );
     expect(describeError(new UnsupportedCalibrationError([]))).toBe(
-      "This file does not have the TDE1 shift-curve layout.",
+      "This file does not have the TDE1 layout the editor works on.",
     );
     expect(describeError(new TypeError("x is undefined"))).toBe(
       "Something went wrong: x is undefined",

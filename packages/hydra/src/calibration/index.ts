@@ -30,7 +30,7 @@ export type {
   LockupFunctionDefinition,
 } from "./byte-function";
 
-export { gridValueRange, readGrid, readGrids, readGridAxes } from "./grid";
+export { findGridAxisIssues, gridValueRange, readGrid, readGrids, readGridAxes } from "./grid";
 export type {
   DisplayUnit,
   Grid,
@@ -48,7 +48,12 @@ export {
 } from "./shift-curve";
 export type { ShiftBreakpoint, ShiftCurve } from "./shift-curve";
 
-export { assertSupportedLayout, findLayoutIssues, UnsupportedCalibrationError } from "./layout";
+export {
+  assertSupportedLayout,
+  findCalibrationIssues,
+  findLayoutIssues,
+  UnsupportedCalibrationError,
+} from "./layout";
 export type { LayoutIssue } from "./layout";
 
 export {
