@@ -83,7 +83,7 @@ function longestText(view: GridEditorView): number {
 }
 
 function axisCaption(kind: "Rows" | "Columns", axis: GridAxisView): string {
-  return `${kind}: ${axis.name} (${axis.unit ?? "PCM units"})`;
+  return `${kind}: ${axis.name}, ${axis.unit ?? "PCM units"}`;
 }
 
 interface GridCellProps {

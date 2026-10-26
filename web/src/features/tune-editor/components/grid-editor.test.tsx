@@ -49,8 +49,8 @@ describe("GridEditor layout", () => {
     const group = screen.getByRole("group", { name: "Fuel demand" });
 
     expect(within(group).getByRole("table")).toBeInTheDocument();
-    expect(within(group).getByText("Rows: Boost (PCM units)")).toBeInTheDocument();
-    expect(within(group).getByText("Columns: Engine speed (rpm)")).toBeInTheDocument();
+    expect(within(group).getByText("Rows: Boost, PCM units")).toBeInTheDocument();
+    expect(within(group).getByText("Columns: Engine speed, rpm")).toBeInTheDocument();
   });
 
   it("gives every row and column a header, and every cell a number field", () => {
