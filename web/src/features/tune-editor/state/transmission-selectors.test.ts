@@ -70,7 +70,7 @@ describe("selectLockupTables", () => {
     expect(rows.map((row) => row.isStep)).toEqual([false, true, false, false, false]);
   });
 
-  it("shows 127 mph as never", () => {
+  it("shows 127 mph as never on a lock curve only", () => {
     const rows = lockupTable(loadedState(), "lock-2").rows;
 
     expect(rows.map((row) => row.never)).toEqual([true, true, false, false, false]);
@@ -103,6 +103,48 @@ describe("selectLockupTables", () => {
     const changed = lockupTable(state, "lock-2").rows.filter((row) => row.changed);
 
     expect(changed).toHaveLength(1);
+  });
+});
+
+describe("an unlock speed of 127 mph", () => {
+  // Unlock 2nd gear at 127 mph at every pedal position: it unlocks below 127 mph, so the
+  // converter cannot stay locked. The lock curve is never below 40% pedal and a real speed above.
+  function unlockedEverywhere(): EditorState {
+    return apply(
+      loadedState(),
+      { type: "lockupSpeedChanged", functionId: "unlock-2", index: 0, mph: 127 },
+      { type: "lockupSpeedChanged", functionId: "unlock-2", index: 1, mph: 127 },
+    );
+  }
+
+  it("is a number, not never, and has no never flag", () => {
+    const rows = lockupTable(unlockedEverywhere(), "unlock-2").rows;
+
+    expect(rows.map((row) => row.speedMph)).toEqual([127, 127]);
+    expect(rows.map((row) => row.never)).toEqual([false, false]);
+  });
+
+  it("is noted as unable to stay locked where the lock curve is a real speed", () => {
+    const rows = lockupTable(unlockedEverywhere(), "unlock-2").rows;
+
+    // Listed closed first. The lock curve is never at closed pedal and 32 mph at wide open.
+    expect(rows.map((row) => row.cannotStayLocked)).toEqual([false, true]);
+  });
+
+  it("is not noted on a lock curve or at 126.5 mph", () => {
+    const state = apply(loadedState(), {
+      type: "lockupSpeedChanged",
+      functionId: "unlock-2",
+      index: 0,
+      mph: 126.5,
+    });
+
+    expect(lockupTable(state, "unlock-2").rows.some((row) => row.cannotStayLocked)).toBe(false);
+    expect(lockupTable(state, "lock-2").rows.some((row) => row.cannotStayLocked)).toBe(false);
+  });
+
+  it("raises no cycling warning", () => {
+    expect(selectLockupWarnings(unlockedEverywhere())).toEqual([]);
   });
 });
 

@@ -73,22 +73,31 @@ function visiblePedalRows(fn: ByteFunction): PedalRow[] {
     .reverse();
 }
 
+/** Where the converter cannot stay locked: the pedal positions where the lock curve is a real speed. */
+type LockSpeedAt = (pedalRaw: number) => number;
+
 function lockupRows(
   fn: ByteFunction,
   speeds: readonly number[],
   originals: readonly number[],
   factor: number,
+  // Only given for an unlock curve: the lock speed of the same gear at a pedal byte.
+  lockSpeedAt?: LockSpeedAt,
 ): LockupCurveRow[] {
   return visiblePedalRows(fn).map((row) => {
     const speedRaw = speeds[row.pointIndex] ?? 0;
     const originalRaw = originals[row.pointIndex] ?? 0;
+    const isNever = speedRaw === LOCKUP_NEVER_SPEED_RAW;
     return {
       ...row,
       speedMph: speedRawToMph(speedRaw),
       speedRaw,
       speedoMph: shiftPointToSpeedoMph(speedRaw, factor),
       originalSpeedMph: speedRawToMph(originalRaw),
-      never: speedRaw === LOCKUP_NEVER_SPEED_RAW,
+      // 127 mph is "never" for a lock speed only. An unlock speed of 127 mph unlocks below 127 mph.
+      never: lockSpeedAt === undefined && isNever,
+      cannotStayLocked:
+        lockSpeedAt !== undefined && isNever && lockSpeedAt(row.pedalRaw) < LOCKUP_NEVER_SPEED_RAW,
       changed: speedRaw !== originalRaw,
     };
   });
@@ -103,15 +112,21 @@ export function selectLockupTables(state: EditorState): LockupTableView[] {
   return LOCKUP_ORDER.flatMap((id) => {
     const fn = functions.find((item) => item.definition.id === id);
     if (!fn) return [];
+    const kind = id.startsWith("lock-") ? "lock" : "unlock";
+    const lock = functions.find((item) => item.definition.id === `lock-${id.split("-")[1]}`);
+    const lockPoints = lock ? curvePoints(lock, values.lockupSpeedsRaw[lock.definition.id]) : [];
+    const lockSpeedAt: LockSpeedAt = (pedalRaw) =>
+      lockPoints.length > 0 ? evaluateShiftSpeedRaw(lockPoints, pedalRaw) : LOCKUP_NEVER_SPEED_RAW;
     return {
       functionId: id,
       title: fn.definition.label,
-      kind: id.startsWith("lock-") ? "lock" : "unlock",
+      kind,
       rows: lockupRows(
         fn,
         values.lockupSpeedsRaw[id],
         tune.originalValues.lockupSpeedsRaw[id],
         factor,
+        kind === "unlock" ? lockSpeedAt : undefined,
       ),
     } satisfies LockupTableView;
   });
@@ -173,7 +188,8 @@ function curvePoints(fn: ByteFunction, speeds: readonly number[]) {
 
 /** Unlock minus lock in mph where the converter could cycle, or undefined where it cannot. */
 function cycleMarginMph(lockRaw: number, unlockRaw: number): number | undefined {
-  // Never locking, or never unlocking, cannot cycle.
+  // Never locking cannot cycle. An unlock speed of 127 mph is not a cycle either: the converter
+  // cannot stay locked there, which the row says (`cannotStayLocked`).
   if (lockRaw >= LOCKUP_NEVER_SPEED_RAW || unlockRaw >= LOCKUP_NEVER_SPEED_RAW) return undefined;
   const margin = unlockRaw - lockRaw;
   return margin >= -SPEED_TIE_TOLERANCE_RAW ? speedRawToMph(Math.max(margin, 0)) : undefined;

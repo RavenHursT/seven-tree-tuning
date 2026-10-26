@@ -26,13 +26,20 @@ export interface LockupCurveRow {
   speedRaw: number;
   speedoMph: number;
   originalSpeedMph: number;
-  /** The stored speed is 127 mph: the converter never locks (or never unlocks) at this pedal. */
+  /** A lock curve only: the stored speed is 127 mph, so the converter never locks at this pedal. */
   never: boolean;
+  /**
+   * An unlock curve only: the stored speed is 127 mph (it unlocks below 127 mph) where the lock
+   * curve is a real speed, so the converter cannot stay locked at this pedal.
+   */
+  cannotStayLocked: boolean;
   changed: boolean;
 }
 
 export interface LockupCurveTableProps {
   functionId: string;
+  /** "lock" shows 127 mph as "never" and has a Never button. "unlock" shows it as a number. */
+  kind: "lock" | "unlock";
   title: string;
   description: string;
   /** "lock speed" or "unlock speed": names the stored column and its fields. */
@@ -49,8 +56,8 @@ export interface LockupCurveTableProps {
 const NEVER_MPH = 127;
 const DEFAULT_SPEEDOMETER_STEP_MPH = 0.1;
 
-function speedText(mph: number): string {
-  return mph >= NEVER_MPH ? "never" : mph.toFixed(1);
+function speedText(mph: number, kind: "lock" | "unlock"): string {
+  return kind === "lock" && mph >= NEVER_MPH ? "never" : mph.toFixed(1);
 }
 
 function spokenPedal(row: LockupCurveRow): string {
@@ -59,6 +66,7 @@ function spokenPedal(row: LockupCurveRow): string {
 }
 
 interface LockupRowProps {
+  kind: "lock" | "unlock";
   title: string;
   speedLabel: string;
   row: LockupCurveRow;
@@ -69,6 +77,7 @@ interface LockupRowProps {
 }
 
 function LockupRow({
+  kind,
   title,
   speedLabel,
   row,
@@ -78,6 +87,7 @@ function LockupRow({
   onNever,
 }: LockupRowProps) {
   const originalId = React.useId();
+  const noteId = React.useId();
   const name = `${title}, ${spokenPedal(row)}`;
   // The speedometer value of a "never" row is above 127 mph, so the row says which text to show.
   const format = (mph: number) => (row.never ? "never" : mph.toFixed(1));
@@ -97,7 +107,11 @@ function LockupRow({
         <div className="flex flex-col gap-1">
           <NumberField
             aria-label={`${name}, ${speedLabel} (mph)`}
-            aria-describedby={row.changed ? originalId : undefined}
+            aria-describedby={
+              [row.changed ? originalId : undefined, row.cannotStayLocked ? noteId : undefined]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
             className="w-20 max-sm:w-16"
             value={row.speedMph}
             onValueChange={(mph) => onSpeedChange(row.pointIndex, mph)}
@@ -107,25 +121,33 @@ function LockupRow({
             format={format}
           />
           <div className="flex items-center gap-1.5 text-[0.625rem] leading-tight text-muted-foreground">
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              aria-label={`${name}, set to never`}
-              aria-pressed={row.never}
-              className="px-1"
-              onClick={() => {
-                if (!row.never) onNever(row.pointIndex);
-              }}
-            >
-              Never
-            </Button>
+            {kind === "lock" ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                aria-label={`${name}, set to never`}
+                aria-pressed={row.never}
+                className="px-1"
+                onClick={() => {
+                  if (!row.never) onNever(row.pointIndex);
+                }}
+              >
+                Never
+              </Button>
+            ) : null}
             {row.changed ? (
               <span id={originalId} className="text-foreground">
-                was {speedText(row.originalSpeedMph)}
+                was {speedText(row.originalSpeedMph, kind)}
               </span>
             ) : null}
           </div>
+          {row.cannotStayLocked ? (
+            // w-0 min-w-full: the note wraps to the width of the field and never widens the column.
+            <p id={noteId} className="w-0 min-w-full text-[0.625rem] leading-tight text-warning">
+              converter cannot stay locked here
+            </p>
+          ) : null}
         </div>
       </TableCell>
       <TableCell className="align-top max-sm:px-1">
@@ -149,6 +171,7 @@ function LockupRow({
  */
 export function LockupCurveTable({
   functionId,
+  kind,
   title,
   description,
   speedLabel,
@@ -187,6 +210,7 @@ export function LockupCurveTable({
           {rows.map((row) => (
             <LockupRow
               key={row.pointIndex}
+              kind={kind}
               title={title}
               speedLabel={speedLabel}
               row={row}

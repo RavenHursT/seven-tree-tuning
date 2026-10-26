@@ -22,6 +22,7 @@ function makeRow(overrides: Partial<LockupCurveRow> = {}): LockupCurveRow {
     originalSpeedMph: 32,
     never: false,
     changed: false,
+    cannotStayLocked: false,
     ...overrides,
   };
 }
@@ -67,6 +68,7 @@ function renderTable(props: Partial<LockupCurveTableProps> = {}) {
   render(
     <LockupCurveTable
       functionId="lock-2"
+      kind="lock"
       title={TITLE}
       description="Locks at or above this speed"
       speedLabel="lock speed"
@@ -188,5 +190,64 @@ describe("LockupCurveTable", () => {
     await user.click(screen.getByRole("button", { name: `Reset ${TITLE}` }));
 
     expect(onReset).toHaveBeenCalledTimes(1);
+  });
+
+  describe("an unlock curve", () => {
+    const unlockRows: LockupCurveRow[] = [
+      makeRow({ pointIndex: 1, pedalRaw: 0, pedalPercent: 0, speedMph: 15, speedRaw: 30 }),
+      makeRow({
+        pointIndex: 0,
+        speedMph: 127,
+        speedRaw: 254,
+        speedoMph: 127,
+        originalSpeedMph: 15,
+        changed: true,
+        cannotStayLocked: true,
+      }),
+    ];
+
+    function renderUnlock() {
+      return renderTable({
+        kind: "unlock",
+        title: "2nd gear unlock",
+        speedLabel: "unlock speed",
+        rows: unlockRows,
+      });
+    }
+
+    it("shows 127 mph as a number in both fields", () => {
+      renderUnlock();
+
+      const name = "2nd gear unlock, 100% pedal";
+      expect(screen.getByRole("textbox", { name: `${name}, unlock speed (mph)` })).toHaveValue(
+        "127.0",
+      );
+      expect(screen.getByRole("textbox", { name: `${name}, speedometer (mph)` })).toHaveValue(
+        "127.0",
+      );
+    });
+
+    it("has no Never button", () => {
+      renderUnlock();
+
+      expect(screen.queryByRole("button", { name: /set to never/ })).not.toBeInTheDocument();
+    });
+
+    it("says the converter cannot stay locked on a row that is marked", () => {
+      renderUnlock();
+
+      const note = screen.getByText("converter cannot stay locked here");
+      expect(note).toBeInTheDocument();
+      expect(
+        screen.getByRole("textbox", { name: "2nd gear unlock, 100% pedal, unlock speed (mph)" }),
+      ).toHaveAccessibleDescription(/converter cannot stay locked here/);
+      expect(screen.getAllByText("converter cannot stay locked here")).toHaveLength(1);
+    });
+
+    it("shows the original unlock speed as a number", () => {
+      renderUnlock();
+
+      expect(screen.getByText("was 15.0")).toBeInTheDocument();
+    });
   });
 });

@@ -161,6 +161,23 @@ describe("Converter lockup", () => {
     expect(lockup.queryByText("Possible converter cycling")).not.toBeInTheDocument();
   });
 
+  it("shows an unlock speed of 127 mph as a number with a note, and no cycling warning", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+    const lockup = within(moduleCard("Converter lockup"));
+    expect(
+      screen.queryByRole("button", { name: /4th gear unlock, .* set to never/ }),
+    ).not.toBeInTheDocument();
+
+    await replaceText(user, lockField("4th gear unlock", "100% pedal", "unlock speed"), "127");
+    await replaceText(user, lockField("4th gear unlock", "0% pedal", "unlock speed"), "127");
+
+    expect(lockField("4th gear unlock", "100% pedal", "unlock speed")).toHaveValue("127.0");
+    expect(lockup.getAllByText("converter cannot stay locked here")).toHaveLength(2);
+    expect(lockup.queryByText("Possible converter cycling")).not.toBeInTheDocument();
+  });
+
   it("keeps its edits and shows them in the collapsed summary", async () => {
     const user = userEvent.setup();
     renderEditor();
@@ -187,7 +204,9 @@ describe("Converter lockup", () => {
     await user.click(screen.getByRole("button", { name: "About converter lockup" }));
 
     const popover = await screen.findByRole("dialog", { name: "About converter lockup" });
-    expect(within(popover).getByText(/Never means 127 mph/)).toBeInTheDocument();
+    expect(
+      within(popover).getByText(/A lock speed of 127 mph is shown as never/),
+    ).toBeInTheDocument();
   });
 });
 

@@ -47,6 +47,20 @@ describe("summarizeConverterLockup", () => {
   });
 });
 
+describe("summarizeConverterLockup with an unlock speed of 127 mph", () => {
+  it("shows the unlock speed as 127, and a lock speed of 127 mph as never", () => {
+    const state = apply(
+      loadedState(),
+      { type: "lockupSpeedChanged", functionId: "unlock-4", index: 0, mph: 127 },
+      { type: "lockupSpeedChanged", functionId: "unlock-4", index: 1, mph: 127 },
+    );
+
+    expect(summarizeConverterLockup(state)).toBe(
+      "4th 30/127 · 3rd 27–31/17 · 2nd never–32/15 · 2 changed",
+    );
+  });
+});
+
 describe("summarizeShiftFirmness", () => {
   it("says no tune is loaded before one is", () => {
     expect(summarizeShiftFirmness(initialEditorState)).toBe("No tune loaded");
