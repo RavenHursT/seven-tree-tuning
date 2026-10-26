@@ -13,6 +13,7 @@ import {
 } from "@seven-tree/hydra";
 
 import type { LoadedTune, TuneSource, TuneSourceKind } from "./loaded-tune";
+import { editTransmission, type TransmissionAction } from "./transmission-edits";
 
 /** A .hcf file picked before a valid chip serial was entered. */
 export interface PendingFile {
@@ -42,7 +43,8 @@ type EditAction =
   | { type: "warmIdleChanged"; rpm: number }
   | { type: "curveReset"; curveId: ShiftCurveId }
   | { type: "allReset" }
-  | { type: "tireCompensationApplied" };
+  | { type: "tireCompensationApplied" }
+  | TransmissionAction;
 
 export type EditorAction =
   | EditAction
@@ -145,8 +147,15 @@ function editValues(state: EditorState, action: EditAction): EditorState {
     case "tireCompensationApplied": {
       const factor = tireCompensationFactor(state.fittedTire, state.calibrationTire);
       const scaled = scaleShiftSpeeds(tune.originalValues, factor);
-      return { ...state, values: { ...scaled, warmIdleRaw: values.warmIdleRaw } };
+      // Tire compensation changes the shift speeds only; every other edit stays as it is.
+      return { ...state, values: { ...values, shiftSpeedsRaw: scaled.shiftSpeedsRaw } };
     }
+    case "lockupSpeedChanged":
+    case "lockupSpeedometerChanged":
+    case "lockupNeverSet":
+    case "epcValueChanged":
+    case "functionReset":
+      return editTransmission(state, tune, values, action);
   }
 }
 

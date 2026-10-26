@@ -17,6 +17,7 @@ import type { ShiftCurveRow } from "../components/shift-curve-table";
 import type { ShiftOverlapView } from "../components/shift-overlap-alert";
 
 import type { EditorState } from "./editor-reducer";
+import { selectTransmissionChanges } from "./transmission-selectors";
 
 export interface CurveTableView {
   readonly curveId: ShiftCurveId;
@@ -37,6 +38,8 @@ export interface CurveTablesView {
 export interface ChangeSummary {
   readonly changedShiftPoints: number;
   readonly idleChanged: boolean;
+  readonly changedLockupPoints: number;
+  readonly changedFirmnessPoints: number;
 }
 
 export interface IdleView {
@@ -113,7 +116,14 @@ export function selectOverlapViews(state: EditorState): ShiftOverlapView[] {
 /** Counts changed visible rows (padding entries follow their row and are not counted). */
 export function selectChangeSummary(state: EditorState): ChangeSummary {
   const { tune, values } = state;
-  if (!tune || !values) return { changedShiftPoints: 0, idleChanged: false };
+  if (!tune || !values) {
+    return {
+      changedShiftPoints: 0,
+      idleChanged: false,
+      changedLockupPoints: 0,
+      changedFirmnessPoints: 0,
+    };
+  }
 
   const { upshifts, downshifts } = selectCurveTables(state);
   const changedShiftPoints = [...upshifts, ...downshifts]
@@ -122,7 +132,7 @@ export function selectChangeSummary(state: EditorState): ChangeSummary {
   const idleChanged = values.warmIdleRaw.some(
     (raw, copy) => raw !== tune.originalValues.warmIdleRaw[copy],
   );
-  return { changedShiftPoints, idleChanged };
+  return { changedShiftPoints, idleChanged, ...selectTransmissionChanges(state) };
 }
 
 /** Field error for a chip serial as typed; undefined while empty or when valid. */

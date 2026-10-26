@@ -14,6 +14,8 @@ export function GenerateSection() {
       onFileNameChange={(value) => dispatch({ type: "outputFileNameChanged", value })}
       changedShiftPoints={summary.changedShiftPoints}
       idleChanged={summary.idleChanged}
+      changedLockupPoints={summary.changedLockupPoints}
+      changedFirmnessPoints={summary.changedFirmnessPoints}
       disabledReason={selectGenerateDisabledReason(state)}
       generating={generating}
       onGenerate={() => void generate()}

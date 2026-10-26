@@ -1,0 +1,203 @@
+"use client";
+
+import * as React from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import { axisLabel, CurveCard, UnitHeading } from "./curve-card";
+import { NumberField } from "./number-field";
+
+export interface LockupCurveRow {
+  /** Position in the stored function; an edit names its row by this, never by list position. */
+  pointIndex: number;
+  pedalRaw: number;
+  pedalPercent: number;
+  isStep: boolean;
+  /** Speed stored in the tune, in mph. 127 when `never`. */
+  speedMph: number;
+  speedRaw: number;
+  speedoMph: number;
+  originalSpeedMph: number;
+  /** The stored speed is 127 mph: the converter never locks (or never unlocks) at this pedal. */
+  never: boolean;
+  changed: boolean;
+}
+
+export interface LockupCurveTableProps {
+  functionId: string;
+  title: string;
+  description: string;
+  /** "lock speed" or "unlock speed": names the stored column and its fields. */
+  speedLabel: string;
+  rows: readonly LockupCurveRow[];
+  onSpeedChange(pointIndex: number, mph: number): void;
+  onSpeedoChange(pointIndex: number, mph: number): void;
+  onNever(pointIndex: number): void;
+  onReset?(): void;
+  /** How many mph one arrow key press changes the speedometer field by. Default 0.1. */
+  speedometerStep?: number;
+}
+
+const NEVER_MPH = 127;
+const DEFAULT_SPEEDOMETER_STEP_MPH = 0.1;
+
+function speedText(mph: number): string {
+  return mph >= NEVER_MPH ? "never" : mph.toFixed(1);
+}
+
+function spokenPedal(row: LockupCurveRow): string {
+  const percent = `${Math.round(row.pedalPercent)}% pedal`;
+  return row.isStep ? `${percent}, step` : percent;
+}
+
+interface LockupRowProps {
+  title: string;
+  speedLabel: string;
+  row: LockupCurveRow;
+  speedometerStep: number;
+  onSpeedChange(pointIndex: number, mph: number): void;
+  onSpeedoChange(pointIndex: number, mph: number): void;
+  onNever(pointIndex: number): void;
+}
+
+function LockupRow({
+  title,
+  speedLabel,
+  row,
+  speedometerStep,
+  onSpeedChange,
+  onSpeedoChange,
+  onNever,
+}: LockupRowProps) {
+  const originalId = React.useId();
+  const name = `${title}, ${spokenPedal(row)}`;
+  // The speedometer value of a "never" row is above 127 mph, so the row says which text to show.
+  const format = (mph: number) => (row.never ? "never" : mph.toFixed(1));
+
+  return (
+    <TableRow data-changed={row.changed} className="data-[changed=true]:bg-primary/10">
+      <TableHead scope="row" className="h-auto p-2 font-normal max-sm:px-1">
+        {axisLabel(row.pedalRaw, row.pedalPercent)}
+        {row.isStep ? (
+          <>
+            {" "}
+            <span className="text-muted-foreground">step</span>
+          </>
+        ) : null}
+      </TableHead>
+      <TableCell className="max-sm:px-1">
+        <div className="flex flex-col gap-1">
+          <NumberField
+            aria-label={`${name}, ${speedLabel} (mph)`}
+            aria-describedby={row.changed ? originalId : undefined}
+            className="w-20 max-sm:w-16"
+            value={row.speedMph}
+            onValueChange={(mph) => onSpeedChange(row.pointIndex, mph)}
+            min={0}
+            max={NEVER_MPH}
+            step={0.5}
+            format={format}
+          />
+          <div className="flex items-center gap-1.5 text-[0.625rem] leading-tight text-muted-foreground">
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              aria-label={`${name}, set to never`}
+              aria-pressed={row.never}
+              className="px-1"
+              onClick={() => {
+                if (!row.never) onNever(row.pointIndex);
+              }}
+            >
+              Never
+            </Button>
+            {row.changed ? (
+              <span id={originalId} className="text-foreground">
+                was {speedText(row.originalSpeedMph)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="align-top max-sm:px-1">
+        <NumberField
+          aria-label={`${name}, speedometer (mph)`}
+          className="w-20 max-sm:w-16"
+          value={row.speedoMph}
+          onValueChange={(mph) => onSpeedoChange(row.pointIndex, mph)}
+          min={0}
+          step={speedometerStep}
+          format={format}
+        />
+      </TableCell>
+    </TableRow>
+  );
+}
+
+/**
+ * One lockup function: the speed above which the converter locks, or below which it unlocks, at
+ * each pedal position. Both speed columns edit the same stored value, as on a shift curve.
+ */
+export function LockupCurveTable({
+  functionId,
+  title,
+  description,
+  speedLabel,
+  rows,
+  onSpeedChange,
+  onSpeedoChange,
+  onNever,
+  onReset,
+  speedometerStep = DEFAULT_SPEEDOMETER_STEP_MPH,
+}: LockupCurveTableProps) {
+  const heading = speedLabel.charAt(0).toUpperCase() + speedLabel.slice(1);
+
+  return (
+    <CurveCard
+      curveId={functionId}
+      title={title}
+      description={description}
+      anyChanged={rows.some((row) => row.changed)}
+      onReset={onReset}
+    >
+      <Table aria-label={title}>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col" className="max-sm:px-1">
+              Pedal
+            </TableHead>
+            <TableHead scope="col" className="max-sm:px-1">
+              <UnitHeading hideUnitWhenNarrow>{heading}</UnitHeading>
+            </TableHead>
+            <TableHead scope="col" className="max-sm:px-1">
+              <UnitHeading hideUnitWhenNarrow>Speedometer</UnitHeading>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <LockupRow
+              key={row.pointIndex}
+              title={title}
+              speedLabel={speedLabel}
+              row={row}
+              speedometerStep={speedometerStep}
+              onSpeedChange={onSpeedChange}
+              onSpeedoChange={onSpeedoChange}
+              onNever={onNever}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </CurveCard>
+  );
+}

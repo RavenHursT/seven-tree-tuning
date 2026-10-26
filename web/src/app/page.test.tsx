@@ -49,7 +49,18 @@ describe("TuneEditorPage layout", () => {
     const grid = moduleCard("Base Tune").parentElement?.parentElement as HTMLElement;
     const main = screen.getByRole("main");
 
-    expect(Array.from(main.children)).toEqual([grid, moduleCard("Shiftpoints")]);
+    expect(Array.from(main.children).slice(0, 2)).toEqual([grid, moduleCard("Shiftpoints")]);
+  });
+
+  it("puts Converter lockup and then Shift firmness below Shiftpoints, in full width", () => {
+    render(<TuneEditorPage />);
+    const main = screen.getByRole("main");
+
+    expect(Array.from(main.children).slice(1)).toEqual([
+      moduleCard("Shiftpoints"),
+      moduleCard("Converter lockup"),
+      moduleCard("Shift firmness"),
+    ]);
   });
 
   it("keeps the Generate Tune bar after the main area, outside every module", () => {

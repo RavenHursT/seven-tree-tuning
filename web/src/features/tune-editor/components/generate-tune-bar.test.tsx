@@ -92,6 +92,22 @@ describe("GenerateTuneBar", () => {
       expect(screen.getByText("1 shift point changed")).toBeInTheDocument();
     });
 
+    it("counts changed lockup speeds and firmness values", () => {
+      renderBar({ changedShiftPoints: 1, changedLockupPoints: 2, changedFirmnessPoints: 1 });
+
+      expect(
+        screen.getByText(
+          "1 shift point changed · 2 lockup speeds changed · 1 firmness value changed",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("uses the singular for one lockup speed", () => {
+      renderBar({ changedLockupPoints: 1 });
+
+      expect(screen.getByText("1 lockup speed changed")).toBeInTheDocument();
+    });
+
     it("starts with a capital letter when only the idle changed", () => {
       renderBar({ idleChanged: true });
 
@@ -229,6 +245,22 @@ describe("GenerateTuneBar", () => {
       const button = screen.getByRole("button", { name: "Reset all changes" });
 
       expect(button).not.toHaveAttribute("aria-disabled");
+    });
+
+    it("is available when only a lockup speed changed", () => {
+      renderBar({ changedLockupPoints: 1 });
+
+      expect(screen.getByRole("button", { name: "Reset all changes" })).not.toHaveAttribute(
+        "aria-disabled",
+      );
+    });
+
+    it("is available when only a firmness value changed", () => {
+      renderBar({ changedFirmnessPoints: 1 });
+
+      expect(screen.getByRole("button", { name: "Reset all changes" })).not.toHaveAttribute(
+        "aria-disabled",
+      );
     });
 
     it("is shown but aria-disabled when nothing changed, and does nothing when pressed", async () => {
