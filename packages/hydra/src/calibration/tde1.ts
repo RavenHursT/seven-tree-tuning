@@ -1,3 +1,7 @@
+import type { EpcFunctionDefinition, LockupFunctionDefinition } from "./byte-function";
+import type { GridDefinition } from "./grid";
+import { TDE1_EPC_FUNCTIONS, TDE1_GRIDS, TDE1_LOCKUP_FUNCTIONS } from "./tde1-items";
+
 /** Forward gear number of the E4OD automatic transmission. 4 is overdrive. */
 export type Gear = 1 | 2 | 3 | 4;
 
@@ -50,13 +54,20 @@ export interface StrategyDefinition {
   /** Upshifts first, then downshifts. */
   readonly shiftCurves: readonly ShiftCurveDefinition[];
   readonly idle: IdleDefinition;
+  /** Converter lock speeds then unlock speeds: 2nd, 3rd, 4th gear. */
+  readonly lockupFunctions: readonly LockupFunctionDefinition[];
+  /** Upshift line-pressure adders: 1→2, 2→3, 3→4. */
+  readonly epcFunctions: readonly EpcFunctionDefinition[];
+  /** Fuel, power, timing and ICP grids. */
+  readonly grids: readonly GridDefinition[];
 }
 
 /**
  * Ford PCM strategy TDE1: 1994.5 to 1996 7.3L Power Stroke with the E4OD automatic.
  * First shift-speed byte of each curve: 0x14521 (1→2), 0x14579 (2→3), 0x145d1 (3→4),
  * 0x145f9 (2→1), 0x14621 (3→2), 0x14649 (4→3). Idle points start at 0x124a4; warm idle is the
- * rpm x 4 word at 0x124a6 and its copy at 0x124aa.
+ * rpm x 4 word at 0x124a6 and its copy at 0x124aa. The lockup, line-pressure and grid items are
+ * defined in tde1-items.ts.
  */
 export const TDE1: StrategyDefinition = {
   id: "TDE1",
@@ -100,4 +111,7 @@ export const TDE1: StrategyDefinition = {
     },
   ],
   idle: { curveOffset: 0x124a4, pointCount: 6, warmIdleOffsets: [0x124a6, 0x124aa] },
+  lockupFunctions: TDE1_LOCKUP_FUNCTIONS,
+  epcFunctions: TDE1_EPC_FUNCTIONS,
+  grids: TDE1_GRIDS,
 };
