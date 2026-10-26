@@ -58,7 +58,6 @@ unbanked range 0x0000 to 0x1fff.
 | 0x7b0 | accelerator pedal position (word) | the x of the two word functions in the shift routine |
 | 0x78c | vehicle speed | mph × 2 |
 | 0x116 | engine oil temperature | °C × 4 (probable) |
-| 0x118 | temperature value used as the column of the pulse-width multiplier | see [Fuel and power](#fuel-and-power) |
 | 0x11c | injection control pressure (ICP) | A/D channel 4, converted by 0x1334c |
 | 0x11e | ICP set point | output of the PI loop at 0x84028 |
 | 0x108 | barometric pressure | not recorded |
@@ -83,13 +82,13 @@ unbanked range 0x0000 to 0x1fff.
 |---|---|
 | Shift speeds of the six shift curves (60 bytes) | Edited now |
 | Warm idle (4 bytes) | Edited now |
-| Converter lockup speeds | Planned |
-| Shift firmness (block B) | Planned |
-| Fuel and power grids | Planned |
-| Injection timing and ICP grids | Planned |
+| Converter lockup speeds: lock and unlock, 2nd, 3rd and 4th gear (48 bytes) | Edited now |
+| Shift firmness: the 1→2, 2→3 and 3→4 upshift adders (30 bytes) | Edited now |
+| Fuel and power grids: 0x125cc, 0x1262c, 0x1277e, 0x12a5e, 0x12c3e, 0x12cac | Edited now |
+| Injection timing and ICP grids: 0x12d1a, 0x12df6, 0x12ed2, 0x13032, 0x13094, 0x13974 | Edited now |
 
-The editor refuses to write any byte outside the edited items. Planned items are not yet in the
-editor.
+The editor refuses to write any byte outside the edited items: the pedal axes, the axis
+functions, the lockup adjustment functions and the unused zero functions stay as they are.
 
 ## Shift schedule
 
@@ -148,12 +147,12 @@ vehicle speed at RAM 0x78c.
 
 | Image address | Layout | Meaning | Editor |
 |---|---|---|---|
-| 0x1468c | byte pairs | lock speed, 2nd gear | planned |
-| 0x146a0 | byte pairs | lock speed, 3rd gear | planned |
-| 0x146b4 | 8 bytes | lock speed, 4th gear | planned |
-| 0x146bc, 0x146d0, 0x146e4 | byte pairs, signed y | lock speed adjustment, 2nd, 3rd, 4th | planned |
-| 0x146ec, 0x14700, 0x14714 | byte pairs | unlock speed, 2nd, 3rd, 4th | planned |
-| 0x1471c, 0x14730, 0x14744 | byte pairs, signed y | unlock speed adjustment, 2nd, 3rd, 4th | planned |
+| 0x1468c | byte pairs | lock speed, 2nd gear | edited |
+| 0x146a0 | byte pairs | lock speed, 3rd gear | edited |
+| 0x146b4 | 8 bytes | lock speed, 4th gear | edited |
+| 0x146bc, 0x146d0, 0x146e4 | byte pairs, signed y | lock speed adjustment, 2nd, 3rd, 4th | not edited |
+| 0x146ec, 0x14700, 0x14714 | byte pairs | unlock speed, 2nd, 3rd, 4th | edited |
+| 0x1471c, 0x14730, 0x14744 | byte pairs, signed y | unlock speed adjustment, 2nd, 3rd, 4th | not edited |
 
 The schedule routine reaches the four groups as Rfc + 0x66c, 0x69c, 0x6cc and 0x6fc (the `AD3W`
 instructions at 0x8b5ab to 0x8b5c6). The sources give the length only for 0x146b4 (8 bytes). The
@@ -200,12 +199,12 @@ pedal position in RAM 0x7b1.
 
 | Image address | Layout | Meaning | Editor |
 |---|---|---|---|
-| 0x14820 | 8 bytes | 1st gear (the notes mark it 0) | planned |
-| 0x14828 | 20 bytes | 1→2 upshift adder | planned |
-| 0x1483c | 8 bytes | 3→2 downshift (the notes mark it 0) | planned |
-| 0x14844 | 20 bytes | 2→3 upshift adder | planned |
-| 0x14858 | 8 bytes | 4→3 downshift (the notes mark it 0) | planned |
-| 0x14860 | 20 bytes | 3→4 upshift adder | planned |
+| 0x14820 | 8 bytes | 1st gear (the notes mark it 0) | not edited |
+| 0x14828 | 20 bytes | 1→2 upshift adder | edited |
+| 0x1483c | 8 bytes | 3→2 downshift (the notes mark it 0) | not edited |
+| 0x14844 | 20 bytes | 2→3 upshift adder | edited |
+| 0x14858 | 8 bytes | 4→3 downshift (the notes mark it 0) | not edited |
+| 0x14860 | 20 bytes | 3→4 upshift adder | edited |
 
 The block runs from 0x14820 to 0x14873. The lengths come from the address spacing. The unit of y is
 not recorded (unknown). The result feeds the pressure request.
@@ -233,23 +232,26 @@ regulator.
 
 | Image address | Layout | Meaning | Editor |
 |---|---|---|---|
-| 0x125cc to 0x1262b | one 3 × 16 word grid | maximum fuel against engine speed. The three rows are equal. | planned |
-| 0x1262c to 0x1277d | 13 × 13 words | block A: base injector pulse width, in timer ticks, against ICP and fuel volume | planned |
-| 0x1277e to 0x128dd | 11 × 16 words | pulse-width multiplier, 0x1000 is 1.0 | planned |
-| 0x128de to 0x12a3d | 11 × 16 signed words | cold correction of the multiplier, against boost and engine speed (0 in the owner's tunes) | planned |
+| 0x125cc to 0x1262b | one 3 × 16 word grid | maximum fuel against engine speed. The three rows are equal. | edited |
+| 0x1262c to 0x1277d | 13 × 13 words | block A: base injector pulse width, in timer ticks, against ICP and fuel volume | edited |
+| 0x1277e to 0x128dd | 11 × 16 words | pulse-width multiplier, 0x1000 is 1.0 | edited |
+| 0x128de to 0x12a3d | 11 × 16 signed words | cold correction of the multiplier, against boost and engine speed (0 in the owner's tunes) | not edited |
 | 0x12a3e to 0x12a5d | 16 words, all 0 | not referenced. Perhaps an unused twelfth row. | not edited |
-| 0x12a5e to 0x12c3d | 15 × 16 signed words | fuel demand against pedal position and engine speed | planned |
-| 0x12c3e | 10 × 11 bytes | fuel limit against boost and engine speed, sea level | planned |
-| 0x12cac | 10 × 11 bytes | the same, altitude | planned |
+| 0x12a5e to 0x12c3d | 15 × 16 signed words | fuel demand against pedal position and engine speed | edited |
+| 0x12c3e | 10 × 11 bytes | fuel limit against boost and engine speed, sea level | edited |
+| 0x12cac | 10 × 11 bytes | the same, altitude | edited |
 
 Notes on each item:
 
 - **Maximum fuel (0x125cc).** One 3 × 16 grid, not three copies of a curve. It is read at 0x839f6.
   The columns are engine speed (RAM 0xb6, through function 0x120a0). The rows are RAM 0x18e
   (through function 0x120e0). Earlier notes in this repository called it a power curve.
-- **Block A (0x1262c).** The cell for row r and column c is at 0x1262c + 2 × (13 × r + c). Only rows
-  and columns 0 to 10 are used, because the axis functions stop at index 10. Changing rows 11 and
-  12 or columns 11 and 12 has no effect: 0 of 1,260 emulator runs changed. Library tunes that are
+- **Block A (0x1262c).** The cell for row r and column c is at 0x1262c + 2 × (13 × r + c). In the
+  owner's tunes only rows and columns 0 to 10 are used, because the axis functions stop at index
+  10: changing rows 11 and 12 or columns 11 and 12 has no effect (0 of 1,260 emulator runs
+  changed). In 34 of the 35 library tunes the axis functions reach index 12, so all 13 × 13 cells
+  are read there. The editor shows all 13 × 13 cells and dims the rows and columns a tune does not
+  reach. Library tunes that are
   not stock extend the axes instead (axis bytes 0x121ab, 0x121af, 0x121b3, 0x121b7, 0x121df and
   0x121e3). The routine 0x83ab5 reads the block through the 2-D routine 0x88062 (call at 0x83bf6,
   address Rf0 + 0x62c). The row is RAM 0x124, which is function 0x121dc of ICP (RAM 0x11c). The
@@ -260,9 +262,9 @@ Notes on each item:
   0x82c05).
 - **Pulse-width multiplier (0x1277e).** Earlier notes in this repository called the start of this
   structure the power block and gave the address 0x12798. The structure starts at 0x1277e. The
-  columns are function 0x12164 of the temperature in RAM 0x116 (probably engine oil; one note gives
-  RAM 0x118). The rows are function 0x12244 of RAM 0x260 (one note names it ICP). The sources do not
-  agree on these two inputs.
+  columns are function 0x12164 of the temperature in RAM 0x116 (probably engine oil). One summary
+  note gives RAM 0x118, but the same notes' read descriptors give 0x116. The rows are function
+  0x12244 of RAM 0x260, which one note names ICP; the other ICP grids use RAM 0x11c.
 - **Cold correction (0x128de).** Signed words. The sources name it a cold correction of the
   multiplier and give the axes as boost and engine speed.
 - **Fuel limit (0x12c3e and 0x12cac).** Byte grids for sea level and for altitude. The sources
@@ -280,21 +282,21 @@ to the grids move the outputs as predicted. Block A: 1,260 of 1,260 runs match. 
 
 | Image address | Layout | Meaning | Editor |
 |---|---|---|---|
-| 0x12d1a | 10 × 11 signed words | base injection timing against fuel and engine speed, sea level | planned |
-| 0x12df6 | 10 × 11 signed words | the same, altitude. The code blends the two with barometric pressure. | planned |
-| 0x12ed2 to 0x13031 | 11 × 16 words | time added to the timing, against ICP and oil temperature (injector delay, an inference) | planned |
-| 0x13032 to 0x13093 | 7 × 7 signed words | timing correction against oil temperature and engine speed, 0 to 12 degrees, larger when cold | planned |
-| 0x13094 to 0x1312d | 7 × 11 words | desired ICP against fuel and engine speed | planned |
-| 0x13974 | 11 × 11 words | IPR duty feed-forward map, against desired ICP and an oil-flow value (Rf6 + 0x146) | planned |
+| 0x12d1a | 10 × 11 signed words | base injection timing against fuel and engine speed, sea level | edited |
+| 0x12df6 | 10 × 11 signed words | the same, altitude. The code blends the two with barometric pressure. | edited |
+| 0x12ed2 to 0x13031 | 11 × 16 words | time added to the timing, against ICP and oil temperature (injector delay, an inference) | edited |
+| 0x13032 to 0x13093 | 7 × 7 signed words | timing correction against oil temperature and engine speed, 0 to 12 degrees, larger when cold | edited |
+| 0x13094 to 0x1312d | 7 × 11 words | desired ICP against fuel and engine speed | edited |
+| 0x13974 | 11 × 11 words | IPR duty feed-forward map, against desired ICP and an oil-flow value (Rf6 + 0x146) | edited |
 
 Notes:
 
 - **Timing** is an angle, 1/64 crank degree. Task 0x840b8 handles injection timing. RAM 0x10e holds the desired timing.
 - **Desired ICP and IPR duty** come from task 0x83c1e. The feed-forward map at 0x13974 is the IPR
   duty map. It is not a power map.
-- **Extent of the IPR map.** The notes give the end of the structure as 0x13a5d. A grid of 11 × 11
-  words ends at 0x13a65. The two differ by 8 bytes. This file keeps both values until a check
-  settles it.
+- **Extent of the IPR map.** The notes give the end of the structure as 0x13a5d. The bytes settle
+  it: the grid is 11 × 11 words and ends at 0x13a65. The rows rise smoothly through the last cell,
+  and the word at 0x13a66 belongs to something else.
 
 Evidence: emulator-checked, in the same run as [Fuel and power](#fuel-and-power) (89,456 lookups).
 The writer of RAM 0x18e is still not found.

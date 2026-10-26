@@ -236,8 +236,8 @@ See [`docs/tunes.md`](docs/tunes.md) for the before/after numbers.
 curves, converter lockup, shift firmness, fuel and power, injection timing and injection control
 pressure (ICP), and idle. For each item it gives the image address, the layout, the units where
 known, the code that reads it, and the evidence. It also says which items the web editor edits.
-Shift speeds and warm idle are edited now. Lockup, firmness, fuel and power, and timing and ICP are
-planned.
+The editor edits shift speeds, warm idle, converter lockup speeds, shift firmness, and the fuel,
+power, timing and ICP grids.
 
 The items were found with [RavenHursT/Ghidra-EEC-806x](https://github.com/RavenHursT/Ghidra-EEC-806x),
 a fork of OpenEEC-Project/Ghidra-EEC-806x (Apache-2.0). The fork adds a Ghidra language for the Intel
@@ -307,7 +307,9 @@ For a production build, run `npm run build:web`, then `npm start`.
 3. Edit any shift point or speedometer value in the **Shiftpoints** module. Each one updates the
    other as you type. The **?** button next to the title explains the two columns.
 4. Edit the warm idle in the **Idle** module.
-5. Click **Generate Tune** and save the `.hcf`. Load it into a chip position with HydraFlash.
+5. If you want, edit the **Converter lockup** and **Shift firmness** modules, and the **Fuel and
+   power** and **Timing and ICP** grids. The two grid modules start collapsed.
+6. Click **Generate Tune** and save the `.hcf`. Load it into a chip position with HydraFlash.
 
 All modules are open when the page loads. Click the title of a module to collapse it to a smaller
 card that shows only the values that are set, for example the tune and the serial, or the tire size.
@@ -330,11 +332,17 @@ serial shows "The chip serial does not match this file."
   described in [Shift schedule](#shift-schedule).
 - **Warm idle:** the rpm of the first two points of the idle curve, stored as rpm × 4 at `0x124a6` and
   `0x124aa`. The editor shows the other idle-curve points and does not change them.
-- **Planned:** converter lockup speeds, shift firmness, fuel and power, and injection timing and ICP.
-  The editor does not edit them yet. See the [calibration map](docs/tde1-calibration-map.md).
+- **Converter lockup:** the lock and unlock speeds of 2nd, 3rd and 4th gear against pedal, in mph,
+  with the same speedometer conversion as the shift points. A lock speed of 127 mph means the
+  converter never locks there. The editor warns where an unlock speed is at or above the lock speed.
+- **Shift firmness:** the line-pressure adders of the 1→2, 2→3 and 3→4 upshifts against pedal, in
+  the PCM's own units. A higher value is a firmer shift.
+- **Fuel and power, timing and ICP:** twelve grids, each with its axes in rpm, degrees or PCM units,
+  a scale-by-percent tool and a reset. Wrong values here can damage the engine.
+- The [calibration map](docs/tde1-calibration-map.md) lists every address.
 
-In the PCM image, the editor changes only those 60 shift-speed bytes and 4 idle bytes, and it
-refuses to write any other byte. A `.hcf` holds only the four 56 KiB banks, so the 8 KiB gaps
+In the PCM image, the editor changes only the bytes of those items, and it refuses to write any
+other byte. A `.hcf` holds only the four 56 KiB banks, so the 8 KiB gaps
 between them always read back as `0xFF`. PHP's library files hold one byte in a gap (at `0x00000`),
 which a `.hcf` cannot carry.
 
