@@ -74,6 +74,9 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
 - Fields that together make one value (Width, Height and Rim) keep their typed text until the focus
   leaves all of them. In the group's `onBlur`, reset only when
   `event.currentTarget.contains(event.relatedTarget)` is false.
+- shadcn `Field` gives a direct `.sr-only` child `width: auto`, so the hidden text takes the width
+  of its text and can widen the page by a pixel on Linux. Add `max-w-px` to such a span, and keep
+  the `Field` `relative`.
 - Do not unmount or natively disable a button that can have focus (Reset, Generate). Use
   `aria-disabled="true"` and ignore clicks, or keyboard focus falls to `<body>`.
 - Give each repeated button its own accessible name ("Reset 3→4 (overdrive)").
@@ -115,6 +118,11 @@ Each rule is a verified behaviour of the versions pinned in `package-lock.json`,
   typed and files chosen before it attaches to server-rendered fields.
 - Name a Playwright fixture's callback parameter `provide`, not `use`. The React hooks lint rule
   treats any call named `use` as a hook.
+- CI runs Playwright on Linux, where text can be a pixel wider than on macOS. Reproduce a
+  CI-only layout failure with the same image: `git archive HEAD | tar -x -C <dir>`, then
+  `docker run --rm -v <dir>:/work -w /work -e CI=1 mcr.microsoft.com/playwright:v<version>-noble
+  bash -lc 'npm ci && cd web && npx playwright test'`. Every worktree's e2e uses port 3200, so run
+  one suite at a time.
 - In the Chromium e2e run, delete `window.showSaveFilePicker` with `page.addInitScript` so Generate
   Tune takes the download path; headless runs cannot drive the native save dialog.
 - The e2e test "fits each shift curve table in its card" fails when a curve table scrolls sideways

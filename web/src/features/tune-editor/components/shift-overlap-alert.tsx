@@ -12,6 +12,8 @@ export interface ShiftOverlapView {
 
 export interface ShiftOverlapAlertProps {
   overlaps: readonly ShiftOverlapView[];
+  /** Heading of the warning. The converter lockup module reuses this alert for lock cycling. */
+  title?: string;
 }
 
 /**
@@ -19,7 +21,10 @@ export interface ShiftOverlapAlertProps {
  * overlap appears. A live region that is added together with its text is often not announced.
  * While it is empty it is visually hidden and out of the layout, so it adds no gap in the parent.
  */
-export function ShiftOverlapAlert({ overlaps }: ShiftOverlapAlertProps) {
+export function ShiftOverlapAlert({
+  overlaps,
+  title = "Possible gear hunting",
+}: ShiftOverlapAlertProps) {
   const hasOverlaps = overlaps.length > 0;
 
   return (
@@ -29,7 +34,7 @@ export function ShiftOverlapAlert({ overlaps }: ShiftOverlapAlertProps) {
         // live region that would read it out again.
         <Alert role={undefined} className="border-warning/50 bg-warning/10 text-warning">
           <WarningIcon />
-          <AlertTitle>Possible gear hunting</AlertTitle>
+          <AlertTitle>{title}</AlertTitle>
           <AlertDescription>
             <ul className="flex list-disc flex-col gap-1 pl-4">
               {overlaps.map((overlap) => (

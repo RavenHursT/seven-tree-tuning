@@ -9,6 +9,37 @@ export type {
   StrategyDefinition,
 } from "./tde1";
 
+export { EPC_FUNCTION_IDS, GRID_IDS, LOCKUP_FUNCTION_IDS } from "./tde1-items";
+export type { EpcFunctionId, GridId, LockupFunctionId } from "./tde1-items";
+
+export {
+  closedPedalIndex,
+  findByteFunctionIssues,
+  functionYRange,
+  LOCKUP_NEVER_SPEED_RAW,
+  readByteFunction,
+  readEpcFunctions,
+  readLockupFunctions,
+} from "./byte-function";
+export type {
+  ByteFunction,
+  ByteFunctionDefinition,
+  ByteFunctionGroup,
+  ByteFunctionPoint,
+  EpcFunctionDefinition,
+  LockupFunctionDefinition,
+} from "./byte-function";
+
+export { findGridAxisIssues, gridValueRange, readGrid, readGrids, readGridAxes } from "./grid";
+export type {
+  DisplayUnit,
+  Grid,
+  GridAxes,
+  GridAxisDefinition,
+  GridDefinition,
+  GridGroup,
+} from "./grid";
+
 export {
   closedThrottleIndex,
   evaluateShiftSpeedRaw,
@@ -17,18 +48,26 @@ export {
 } from "./shift-curve";
 export type { ShiftBreakpoint, ShiftCurve } from "./shift-curve";
 
-export { assertSupportedLayout, findLayoutIssues, UnsupportedCalibrationError } from "./layout";
+export {
+  assertSupportedLayout,
+  findCalibrationIssues,
+  findLayoutIssues,
+  UnsupportedCalibrationError,
+} from "./layout";
 export type { LayoutIssue } from "./layout";
 
 export {
+  diffCalibrationItems,
   diffTuneValues,
   readTuneValues,
   scaleShiftSpeeds,
+  setFunctionPointRaw,
+  setGridCellRaw,
   setShiftPointRaw,
   setWarmIdleRpm,
   writeTuneValues,
 } from "./tune-values";
-export type { TuneValues, TuneValuesDiff } from "./tune-values";
+export type { CalibrationItemsDiff, TuneValues, TuneValuesDiff } from "./tune-values";
 
 export {
   assertOnlyEditableChanges,

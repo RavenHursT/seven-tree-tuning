@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { CALIBRATION_IMAGE_SIZE } from "../image";
 import {
   assertSupportedLayout,
+  findCalibrationIssues,
   findLayoutIssues,
   UnsupportedCalibrationError,
   type LayoutIssue,
@@ -134,11 +135,72 @@ describe("assertSupportedLayout", () => {
     expect(caught).toBeInstanceOf(Error);
     const error = caught as UnsupportedCalibrationError;
     expect(error.name).toBe("UnsupportedCalibrationError");
-    expect(error.message).toBe("This file does not have the TDE1 shift-curve layout.");
-    expect(error.issues).toEqual(findLayoutIssues(image));
+    expect(error.message).toMatch(
+      /^This file does not have the TDE1 layout the editor works on\. 1→2 shift: /,
+    );
+    expect(error.issues).toEqual(findCalibrationIssues(image));
   });
 
   it("throws UnsupportedCalibrationError, not RangeError, for a wrong image size", () => {
     expect(() => assertSupportedLayout(new Uint8Array(10))).toThrow(UnsupportedCalibrationError);
+  });
+});
+
+describe("findCalibrationIssues", () => {
+  it("finds nothing in a well-formed image", () => {
+    expect(findCalibrationIssues(buildTde1Image())).toEqual([]);
+  });
+
+  it("reports a broken shift curve, as findLayoutIssues does", () => {
+    const image = buildTde1Image();
+    image[terminatorOffset("up-3-4")] = 0x00;
+    expect(findCalibrationIssues(image)).toEqual(findLayoutIssues(image));
+  });
+
+  it("reports a broken lockup function", () => {
+    const image = buildTde1Image();
+    image[0x1468c] = 0xfe;
+    expect(findCalibrationIssues(image).map((issue) => issue.message)).toEqual([
+      "2nd gear lock: the first pedal value is 254, not 255.",
+    ]);
+  });
+
+  it("reports a broken line-pressure function", () => {
+    const image = buildTde1Image();
+    image[0x14828] = 0x00;
+    expect(findCalibrationIssues(image).map((issue) => issue.message)).toEqual([
+      "1→2 line pressure: the first pedal value is 0, not 255.",
+    ]);
+  });
+
+  it("reports a broken grid axis function", () => {
+    const image = buildTde1Image();
+    image[0x120a0] = 0x00;
+    expect(findCalibrationIssues(image).map((issue) => issue.message)).toEqual([
+      "Maximum fuel, columns (Engine speed): the first value is 65280, not 65535.",
+    ]);
+  });
+
+  it("gives one issue for an image that is not 256 KiB", () => {
+    expect(findCalibrationIssues(new Uint8Array(10))).toHaveLength(1);
+  });
+});
+
+describe("assertSupportedLayout with other parts of the calibration", () => {
+  it("refuses an image whose lockup function is broken, with a plain message", () => {
+    const image = buildTde1Image();
+    image[0x1468c] = 0xfe;
+    expect(() => assertSupportedLayout(image)).toThrow(
+      "This file does not have the TDE1 layout the editor works on. 2nd gear lock: the first pedal value is 254, not 255.",
+    );
+  });
+
+  it("names the first problem and counts the others", () => {
+    const image = buildTde1Image();
+    image[0x120a0] = 0x00;
+    image[0x1468c] = 0xfe;
+    expect(() => assertSupportedLayout(image)).toThrow(
+      "This file does not have the TDE1 layout the editor works on. 2nd gear lock: the first pedal value is 254, not 255. There is 1 more problem.",
+    );
   });
 });

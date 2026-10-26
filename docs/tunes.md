@@ -3,7 +3,8 @@
 Every tune in [`tunes/`](../tunes), what it is for, and its full shift schedule. The shift-speed
 numbers are decoded from the tune bytes and are exact. The power and fuelling notes are what the byte
 comparison can prove without the licensed definition file; where a value's exact meaning is not known
-yet, this says so.
+yet, this says so. The address, layout, units and reading code of each decoded item are in the
+[calibration map](tde1-calibration-map.md).
 
 All tunes target one truck — a 1996 F-350 7.3L, PCM strategy `TDE1`, 30% injector nozzles, 34" tires.
 See the [README](../README.md) for the vehicle build, the `.hcf` format, and the filename convention.
@@ -131,32 +132,44 @@ value needs Power Hungry's licensed definition file; those claims are marked.
 
 - **Shift and power are separate.** The tire-comp and up+down variants change only the shift curves.
   Within one application, the base and UPDOWN files have identical power and fuelling.
-- **Power curve (`0x125cc`):** identical in all 19 tunes.
-- **Power map (`0x13974`, an 11 × 11 map):**
+- **Maximum fuel against engine speed (`0x125cc`, one 3 × 16 word grid):** identical in all 19 tunes.
+  It was called a power curve in earlier versions of this file.
+- **IPR duty feed-forward map (`0x13974`, an 11 × 11 map of words):** the injection pressure
+  regulator duty against desired injection control pressure and an oil-flow value. It is not a power
+  map. Earlier versions of this file called it one.
   - Daily Driver, Strenuous Tow, and Tow Performance share one version.
   - **Hot Street and Extreme Street each raise the top two columns** (the high-load / high-rpm
     corner) well above that shared version. They are close to each other; Hot Street is marginally
     higher in the top column. These are the two higher-power street tunes.
-- **Power block (`0x12798`):** the street tunes (Daily Driver, Hot Street, Extreme Street) share one
-  version; the tow tunes (Strenuous Tow, Tow Performance) share a different one. This is the main
-  street-versus-tow fuelling difference. Its exact function needs the definition file.
+- **Pulse-width multiplier (starts at `0x1277e`, 11 × 16 words, `0x1000` is 1.0):** the street tunes
+  (Daily Driver, Hot Street, Extreme Street) share one version; the tow tunes (Strenuous Tow, Tow
+  Performance) share a different one. This is the main street-versus-tow fuelling difference. The
+  differences first appear at `0x12798`, which is inside the structure. Earlier versions of this file
+  called it the power block and gave `0x12798` as its address.
 - **Tow tunes hold the lower gears longer.** Strenuous Tow and Tow Performance raise the
   closed-throttle upshift points (1→2 at 10 vs 7 mph, 2→3 at 22 vs 18) and the 2→1 coast-down
   downshift (9 vs 5.5), so the transmission stays in a lower gear under load.
-- **Strenuous Tow vs Tow Performance** differ in only 189 bytes: the two custom blocks below, a
-  one-mph 3→4 upshift difference (65 vs 64 at WOT), and one transmission value. Same power map, same
-  power block.
+- **Strenuous Tow vs Tow Performance** differ in only 189 bytes: block A and block B (see "Items decoded since"
+  below), a one-mph 3→4 upshift difference (65 vs 64 at WOT), and one transmission value. Same IPR duty map,
+  same pulse-width multiplier.
 
-## Not decoded yet
+## Items decoded since, and items still open
 
-- **Two tuner-custom blocks**, at `0x12630` (block A) and `0x14829` (block B), differ between several
-  tunes but are the same across Power Hungry's whole public library, so the library cannot name them.
-  Their function is unknown. Identifying them needs either the licensed definition file or a
-  single-change road test.
-- **Torque-converter lockup** has not been located. The curve at `0x14649`, once thought to be
+- **Two tuner-custom blocks.** Block A (`0x1262c`–`0x1277d`, 13 × 13 words) is the base injector pulse
+  width against injection control pressure and fuel volume. Block B (`0x14820`–`0x14873`, six byte
+  functions) is the upshift line-pressure adder against pedal position, which sets shift firmness.
+  Earlier versions of this file gave the addresses `0x12630` and `0x14829` and called their function
+  unknown. They differ between several tunes and are the same across Power Hungry's whole public
+  library, so the library alone cannot name them. The code that reads them gives them these names.
+- **Torque-converter lockup** is at `0x1468c`–`0x1474b`: lock and unlock speeds for 2nd, 3rd and 4th
+  gear against pedal position, with adjustment functions. The curve at `0x14649`, once thought to be
   lockup, is the 4→3 downshift (confirmed on the truck on 2026-10-21; see the correction below).
-- Several other fuel and timing values differ between applications (for example the group of
-  structures around `0x12ed2`–`0x13122`); their exact meanings need the definition file.
+- **Other fuel and timing values** (for example the structures around `0x12ed2`–`0x13122`) are in
+  the [calibration map](tde1-calibration-map.md) with their layout and reader. Their units are
+  unknown unless the map gives one.
+- **Still open:** the unit and scale of injection control pressure and the code that writes RAM
+  `0x18e` (the row input of the maximum-fuel grid). The IPR duty map is settled: it ends at
+  `0x13a65`. See the calibration map.
 
 ## Shift-curve format and build method
 

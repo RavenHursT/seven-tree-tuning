@@ -1,17 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ArrowCounterClockwiseIcon, WarningIcon } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -21,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { axisLabel, CurveCard, UnitHeading } from "./curve-card";
 import { NumberField } from "./number-field";
 
 export interface ShiftCurveRow {
@@ -48,7 +40,6 @@ export interface ShiftCurveTableProps {
   speedometerStep?: number;
 }
 
-const WIDE_OPEN_THROTTLE_RAW = 255;
 const MAX_SHIFT_POINT_MPH = 127.5;
 const DEFAULT_SPEEDOMETER_STEP_MPH = 0.1;
 
@@ -60,26 +51,9 @@ function hexByte(raw: number): string {
   return `0x${raw.toString(16).toUpperCase().padStart(2, "0")}`;
 }
 
-function throttleLabel(row: ShiftCurveRow): string {
-  if (row.throttleRaw === WIDE_OPEN_THROTTLE_RAW) return "WOT";
-  if (row.throttleRaw === 0) return "Closed";
-  return `${Math.round(row.throttlePercent)}%`;
-}
-
 function spokenThrottle(row: ShiftCurveRow): string {
   const percent = `${Math.round(row.throttlePercent)}% throttle`;
   return row.isStep ? `${percent}, step` : percent;
-}
-
-function UnitHeading({ children }: { children: string }) {
-  return (
-    <>
-      {children}{" "}
-      <span aria-hidden="true" className="font-normal text-muted-foreground">
-        mph
-      </span>
-    </>
-  );
 }
 
 interface CurveRowProps {
@@ -103,7 +77,7 @@ function CurveRow({
   return (
     <TableRow data-changed={row.changed} className="data-[changed=true]:bg-primary/10">
       <TableHead scope="row" className="h-auto p-2 font-normal">
-        {throttleLabel(row)}
+        {axisLabel(row.throttleRaw, row.throttlePercent)}
         {row.isStep ? (
           <>
             {" "}
@@ -151,36 +125,6 @@ function CurveRow({
   );
 }
 
-interface ResetCurveButtonProps {
-  title: string;
-  unavailable: boolean;
-  onReset(): void;
-}
-
-/**
- * Stays in the page and in the tab order when there is nothing to reset, so that focus is not lost
- * when a reset removes the last change. The name includes the curve because six of these buttons
- * are on one page.
- */
-function ResetCurveButton({ title, unavailable, onReset }: ResetCurveButtonProps) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="xs"
-      aria-label={`Reset ${title}`}
-      aria-disabled={unavailable || undefined}
-      className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
-      onClick={() => {
-        if (!unavailable) onReset();
-      }}
-    >
-      <ArrowCounterClockwiseIcon data-icon="inline-start" />
-      Reset
-    </Button>
-  );
-}
-
 export function ShiftCurveTable({
   curveId,
   title,
@@ -195,51 +139,44 @@ export function ShiftCurveTable({
   const anyChanged = rows.some((row) => row.changed);
 
   return (
-    <Card size="sm" className="min-w-0" data-curve-id={curveId}>
-      <CardHeader>
-        <CardTitle>
-          <h4>{title}</h4>
-        </CardTitle>
-        <CardDescription>{kind === "upshift" ? "Upshift" : "Downshift"}</CardDescription>
-        {onReset ? (
-          <CardAction>
-            <ResetCurveButton title={title} unavailable={!anyChanged} onReset={onReset} />
-          </CardAction>
-        ) : null}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        <Table aria-label={title}>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">Throttle</TableHead>
-              <TableHead scope="col">
-                <UnitHeading>Shift point</UnitHeading>
-              </TableHead>
-              <TableHead scope="col">
-                <UnitHeading>Speedometer</UnitHeading>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <CurveRow
-                key={row.breakpointIndex}
-                title={title}
-                row={row}
-                speedometerStep={speedometerStep}
-                onShiftPointChange={onShiftPointChange}
-                onSpeedoChange={onSpeedoChange}
-              />
-            ))}
-          </TableBody>
-        </Table>
-        {warning ? (
-          <p className="flex items-start gap-1.5 text-warning">
-            <WarningIcon className="mt-0.5 size-3.5 shrink-0" />
-            {warning}
-          </p>
-        ) : null}
-      </CardContent>
-    </Card>
+    <CurveCard
+      curveId={curveId}
+      title={title}
+      description={kind === "upshift" ? "Upshift" : "Downshift"}
+      anyChanged={anyChanged}
+      onReset={onReset}
+    >
+      <Table aria-label={title}>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Throttle</TableHead>
+            <TableHead scope="col">
+              <UnitHeading>Shift point</UnitHeading>
+            </TableHead>
+            <TableHead scope="col">
+              <UnitHeading>Speedometer</UnitHeading>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <CurveRow
+              key={row.breakpointIndex}
+              title={title}
+              row={row}
+              speedometerStep={speedometerStep}
+              onShiftPointChange={onShiftPointChange}
+              onSpeedoChange={onSpeedoChange}
+            />
+          ))}
+        </TableBody>
+      </Table>
+      {warning ? (
+        <p className="flex items-start gap-1.5 text-warning">
+          <WarningIcon className="mt-0.5 size-3.5 shrink-0" />
+          {warning}
+        </p>
+      ) : null}
+    </CurveCard>
   );
 }

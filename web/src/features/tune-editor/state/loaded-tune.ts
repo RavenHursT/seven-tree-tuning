@@ -29,8 +29,9 @@ export interface LoadedTune {
 }
 
 /**
- * Reads a decoded 256 KiB image. Throws UnsupportedCalibrationError when the image does not
- * have the TDE1 shift-curve layout (for example a tune for another PCM strategy).
+ * Reads a decoded 256 KiB image. Throws UnsupportedCalibrationError when the shift curves, the
+ * lockup or line-pressure functions or the grid axis functions are not laid out the way the editor
+ * works on (for example a tune for another PCM strategy).
  */
 export function createLoadedTune(image: Uint8Array, source: TuneSource): LoadedTune {
   assertSupportedLayout(image);

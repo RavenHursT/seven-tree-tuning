@@ -18,6 +18,10 @@ export interface GenerateTuneBarProps {
   onFileNameChange(value: string): void;
   changedShiftPoints: number;
   idleChanged: boolean;
+  /** Cells edited in the fuel, power, timing and ICP grids. */
+  changedGridCells?: number;
+  changedLockupPoints?: number;
+  changedFirmnessPoints?: number;
   disabledReason?: string;
   generating?: boolean;
   onGenerate(): void;
@@ -31,13 +35,27 @@ export interface GenerateTuneBarProps {
  */
 const UNAVAILABLE_CLASS = "aria-disabled:pointer-events-none aria-disabled:opacity-50";
 
-function summarizeChanges(changedShiftPoints: number, idleChanged: boolean): string {
-  const parts: string[] = [];
-  if (changedShiftPoints > 0) {
-    const noun = changedShiftPoints === 1 ? "shift point" : "shift points";
-    parts.push(`${changedShiftPoints} ${noun} changed`);
-  }
-  if (idleChanged) parts.push("idle changed");
+function countPhrase(count: number, singular: string, plural: string): string[] {
+  if (count === 0) return [];
+  return [`${count} ${count === 1 ? singular : plural} changed`];
+}
+
+interface ChangeCounts {
+  changedShiftPoints: number;
+  idleChanged: boolean;
+  changedLockupPoints: number;
+  changedFirmnessPoints: number;
+  changedGridCells: number;
+}
+
+function summarizeChanges(counts: ChangeCounts): string {
+  const parts = [
+    ...countPhrase(counts.changedShiftPoints, "shift point", "shift points"),
+    ...countPhrase(counts.changedLockupPoints, "lockup speed", "lockup speeds"),
+    ...countPhrase(counts.changedFirmnessPoints, "firmness value", "firmness values"),
+  ];
+  if (counts.idleChanged) parts.push("idle changed");
+  parts.push(...countPhrase(counts.changedGridCells, "grid cell", "grid cells"));
   if (parts.length === 0) return "No changes";
   const summary = parts.join(" · ");
   return summary.charAt(0).toUpperCase() + summary.slice(1);
@@ -77,7 +95,7 @@ function OutputFileField({ fileName, onFileNameChange }: OutputFileFieldProps) {
   const hintId = `${baseId}-hint`;
 
   return (
-    <Field className="md:max-w-sm">
+    <Field className="relative md:max-w-sm">
       <FieldLabel htmlFor={inputId}>Output file</FieldLabel>
       <InputGroup>
         <InputGroupInput
@@ -92,7 +110,7 @@ function OutputFileField({ fileName, onFileNameChange }: OutputFileFieldProps) {
           <InputGroupText>.hcf</InputGroupText>
         </InputGroupAddon>
       </InputGroup>
-      <span id={hintId} className="sr-only">
+      <span id={hintId} className="sr-only max-w-px">
         The .hcf extension is added for you.
       </span>
     </Field>
@@ -149,13 +167,23 @@ export function GenerateTuneBar({
   onFileNameChange,
   changedShiftPoints,
   idleChanged,
+  changedGridCells = 0,
+  changedLockupPoints = 0,
+  changedFirmnessPoints = 0,
   disabledReason,
   generating = false,
   onGenerate,
   onResetAll,
 }: GenerateTuneBarProps) {
   const reasonId = React.useId();
-  const nothingChanged = changedShiftPoints === 0 && !idleChanged;
+  const counts = {
+    changedShiftPoints,
+    idleChanged,
+    changedLockupPoints,
+    changedFirmnessPoints,
+    changedGridCells,
+  };
+  const nothingChanged = summarizeChanges(counts) === "No changes";
 
   return (
     <div
@@ -164,9 +192,7 @@ export function GenerateTuneBar({
     >
       <OutputFileField fileName={fileName} onFileNameChange={onFileNameChange} />
       <div className="flex flex-col gap-2 md:items-end">
-        <p className="text-xs text-muted-foreground">
-          {summarizeChanges(changedShiftPoints, idleChanged)}
-        </p>
+        <p className="text-xs text-muted-foreground">{summarizeChanges(counts)}</p>
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
           {onResetAll ? (
             <ResetButton unavailable={generating || nothingChanged} onClick={onResetAll} />

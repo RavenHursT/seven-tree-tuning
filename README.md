@@ -15,6 +15,9 @@ Tune files and file-format notes for a 1996 Ford F-350 7.3L Power Stroke Diesel 
 > **[Full tune reference → `docs/tunes.md`](docs/tunes.md)** — every tune in `tunes/`, what it is for,
 > and its complete up- and down-shift schedule.
 >
+> **[Calibration map → `docs/tde1-calibration-map.md`](docs/tde1-calibration-map.md)** — every decoded
+> TDE1 item: image address, layout, units, the code that reads it, and how it was checked.
+>
 > **[Web tune editor → `web/`](#web-tune-editor)** — load a tune, edit its shift points and idle speed,
 > and save a new `.hcf`.
 
@@ -47,9 +50,10 @@ feel and lockup behaviour, and the larger tires shift the vehicle-speed and shif
 | `tunes/*.hcf` (base) | 9 base tunes, dated 2025-08-16 to 2025-08-28, including revisions B–E of Daily Driver. Byte-for-byte unmodified copies. |
 | `tunes/*-TIRECOMP-UPDOWN.hcf` | 5 tunes derived from the `REVD-DOWNSHIFTCHG` bases, with every **upshift and downshift** speed scaled for 34" tires — the ones to flash on the 34" tires. |
 | `docs/tunes.md` | Per-tune reference: purpose, variants, and the full up/down shift schedule of every tune. |
+| `docs/tde1-calibration-map.md` | Every decoded TDE1 calibration item: address, layout, units, reader, evidence. |
 | `tools/` | Decryptor/encryptor, the tire-compensation script, and format notes. |
 | `web/` | The web tune editor (Next.js). See [Web tune editor](#web-tune-editor). |
-| `packages/hydra/` | `@seven-tree/hydra`: the `.hcf` / `.efu` codecs, the TDE1 shift curves and idle, and the tire math. `tools/` and `web/` both use it. |
+| `packages/hydra/` | `@seven-tree/hydra`: the `.hcf` / `.efu` codecs, the TDE1 items the editor reads and writes (shift curves, idle, converter lockup, shift firmness and the fuel, power, timing and ICP grids), and the tire math. `tools/` and `web/` both use it. |
 
 The base files are unmodified byte-for-byte copies, verified by SHA-256. Each `-TIRECOMP-UPDOWN` file
 differs from its base by exactly 60 bytes: 30 upshift-speed bytes and 30 downshift-speed bytes. Full
@@ -155,6 +159,11 @@ Across the whole set, relative to `DAILYDRIVER-REVB`:
 
 Every difference falls inside `0x00e4a0`–`0x010870`, under 0.6% of the file.
 
+These offsets are offsets in the encrypted `.hcf` file. For the live calibration (`0x0e000` to
+`0x1bfff`), add `0x4000` to get the address in the decrypted 256 KiB image: `0x105d0` is image
+address `0x145d0`, the 3→4 upshift curve. The image addresses, with the layout, units and reading
+code of every decoded item, are in [`docs/tde1-calibration-map.md`](docs/tde1-calibration-map.md).
+
 ## How values are encoded
 
 Ford PCM calibration values, per the
@@ -188,8 +197,9 @@ curves — three upshift, three downshift (values shown for `DAILYDRIVER-REVD-DO
 
 Each curve is 19 bytes of interleaved `(MPH, throttle)` pairs. The **even** bytes are the shift speed,
 stored as MPH × 2; the **odd** bytes are the throttle-position breakpoints. (An earlier note here
-called `0x14649` the torque-converter lockup curve; it is the 4→3 downshift. The lockup schedule has
-not been located.) The downshift addresses were confirmed on the truck on 2026-10-21. The full schedule of every tune is in [`docs/tunes.md`](docs/tunes.md).
+called `0x14649` the torque-converter lockup curve; it is the 4→3 downshift. The lockup schedule is a
+separate group of functions at `0x1468c`–`0x1474b`; see the
+[calibration map](docs/tde1-calibration-map.md#converter-lockup).) The downshift addresses were confirmed on the truck on 2026-10-21. The full schedule of every tune is in [`docs/tunes.md`](docs/tunes.md).
 
 These offsets were found by decrypting Power Hungry's public calibration library — the `VCAB0_02_*.efu`
 files for this PCM strategy, which use a fixed key rather than the chip serial — and comparing the
@@ -220,10 +230,57 @@ That set was removed on 2026-10-21; it is in git history at
 [`bdab89b`](https://github.com/RavenHursT/seven-tree-tuning/commit/bdab89b953e54db0a995a5d3fce2ccd8ebe6ad7c).
 See [`docs/tunes.md`](docs/tunes.md) for the before/after numbers.
 
+## Calibration map and the Ghidra 8065 fork
+
+[`docs/tde1-calibration-map.md`](docs/tde1-calibration-map.md) lists every decoded TDE1 item: shift
+curves, converter lockup, shift firmness, fuel and power, injection timing and injection control
+pressure (ICP), and idle. For each item it gives the image address, the layout, the units where
+known, the code that reads it, and the evidence. It also says which items the web editor edits.
+The editor edits shift speeds, warm idle, converter lockup speeds, shift firmness, and the fuel,
+power, timing and ICP grids.
+
+The items were found with [RavenHursT/Ghidra-EEC-806x](https://github.com/RavenHursT/Ghidra-EEC-806x),
+a fork of OpenEEC-Project/Ghidra-EEC-806x (Apache-2.0). The fork adds a Ghidra language for the Intel
+8065, the CPU of this controller, and scripts that check it. The fork's `main` is at commit
+[`8c748015`](https://github.com/RavenHursT/Ghidra-EEC-806x/commit/8c748015063a471cf09c139571d456ece81c52fb).
+
+- Pull request [#1](https://github.com/RavenHursT/Ghidra-EEC-806x/pull/1) adds the 8065 language and
+  a comparison against SAD, the EEC-IV disassembler.
+- Pull request [#2](https://github.com/RavenHursT/Ghidra-EEC-806x/pull/2) adds the emulator and
+  calibration-search scripts.
+- [`docs/8065-notes.md`](https://github.com/RavenHursT/Ghidra-EEC-806x/blob/8c748015063a471cf09c139571d456ece81c52fb/docs/8065-notes.md):
+  what the 8065 changes compared with the 8061, with a source for each fact.
+- [`docs/emulator-check.md`](https://github.com/RavenHursT/Ghidra-EEC-806x/blob/8c748015063a471cf09c139571d456ece81c52fb/docs/emulator-check.md):
+  the emulator check of the shift schedule.
+- [`test/RESULTS.md`](https://github.com/RavenHursT/Ghidra-EEC-806x/blob/8c748015063a471cf09c139571d456ece81c52fb/test/RESULTS.md):
+  the comparison with SAD.
+
+What the checks proved:
+
+- The 8065 language matches SAD on all 12,144 code rows in bank 8: the same address, length,
+  mnemonic, jump and call targets, and operands.
+- The emulator matches an independent calculation for every checked lookup: all 7,708 lookups of the
+  shift schedule check, and the counts per group in the calibration map.
+
+To reproduce the checks, use the fork's scripts. They need Ghidra 12.2, Java 25 and a decrypted
+256 KiB image of a tune (see [`tools/README.md`](tools/README.md)). The image stays on your machine.
+
+```
+test/run-compare.sh --mode multi --find-code     # compare the Ghidra listing with SAD
+test/run-emulator-check.sh --image <image.bin> -- <check arguments>
+```
+
+The arguments for TDE1 are in the
+[emulator check](https://github.com/RavenHursT/Ghidra-EEC-806x/blob/8c748015063a471cf09c139571d456ece81c52fb/docs/emulator-check.md#method).
+`run-compare.sh` also needs a SAD listing of the image in the comparison format (`--ref`). The fork
+holds no image and no listing. The result counts for lockup, firmness, fuel and power, and timing and
+ICP are recorded locally and are not yet in the fork.
+
 ## Web tune editor
 
-`web/` is a Next.js app that edits the shift schedule and the warm idle of a TDE1 tune, then saves a
-new `.hcf` for the chip.
+`web/` is a Next.js app that edits a TDE1 tune and saves a new `.hcf` for the chip. It edits the shift
+schedule, the warm idle, the converter lockup speeds, the shift firmness and the fuel, power, timing
+and ICP grids.
 
 ### Run it
 
@@ -251,7 +308,9 @@ For a production build, run `npm run build:web`, then `npm start`.
 3. Edit any shift point or speedometer value in the **Shiftpoints** module. Each one updates the
    other as you type. The **?** button next to the title explains the two columns.
 4. Edit the warm idle in the **Idle** module.
-5. Click **Generate Tune** and save the `.hcf`. Load it into a chip position with HydraFlash.
+5. If you want, edit the **Converter lockup** and **Shift firmness** modules, and the **Fuel and
+   power** and **Timing and ICP** grids. The two grid modules start collapsed.
+6. Click **Generate Tune** and save the `.hcf`. Load it into a chip position with HydraFlash.
 
 All modules are open when the page loads. Click the title of a module to collapse it to a smaller
 card that shows only the values that are set, for example the tune and the serial, or the tire size.
@@ -268,15 +327,27 @@ serial shows "The chip serial does not match this file."
 - **Set shift points for these tires:** replaces every shift point with the base tune's value ×
   calibration diameter ÷ fitted diameter. With LT265/75R16 as the calibration size and 315/75R16
   fitted, the five `REVD-DOWNSHIFTCHG` tunes become the shipped `-TIRECOMP-UPDOWN` tunes, byte for
-  byte. With the default LT235/85R16, 12 to 18 shift points per tune land 0.5 mph higher.
+  byte. With the default LT235/85R16, 12 to 18 shift points per tune land 0.5 mph higher. Lockup
+  speeds are not changed.
 - **Possible gear hunting:** a throttle range where a downshift speed is above its matching upshift.
   Equal speeds are not flagged, because Power Hungry's own library has them. The six curves are
   described in [Shift schedule](#shift-schedule).
 - **Warm idle:** the rpm of the first two points of the idle curve, stored as rpm × 4 at `0x124a6` and
   `0x124aa`. The editor shows the other idle-curve points and does not change them.
+- **Converter lockup:** the lock and unlock speeds of 2nd, 3rd and 4th gear against pedal, in mph,
+  with the same speedometer conversion as the shift points. A lock speed of 127 mph means the
+  converter never locks there. For an unlock speed, the editor treats 127 mph as an ordinary speed.
+  The editor warns where an unlock speed is at or above the lock speed, and the only exception is a
+  lock speed of 127 mph (never). The exact PCM behavior at an unlock speed of 127 mph is not
+  verified. The editor stores no lockup speed above 127 mph.
+- **Shift firmness:** the line-pressure adders of the 1→2, 2→3 and 3→4 upshifts against pedal, in
+  the PCM's own units. A higher value is a firmer shift.
+- **Fuel and power, timing and ICP:** twelve grids, each with its axes in rpm or PCM units (timing values show in degrees),
+  a scale-by-percent tool and a reset. Wrong values here can damage the engine.
+- The [calibration map](docs/tde1-calibration-map.md) lists every address.
 
-In the PCM image, the editor changes only those 60 shift-speed bytes and 4 idle bytes, and it
-refuses to write any other byte. A `.hcf` holds only the four 56 KiB banks, so the 8 KiB gaps
+In the PCM image, the editor changes only the bytes of those items, and it refuses to write any
+other byte. A `.hcf` holds only the four 56 KiB banks, so the 8 KiB gaps
 between them always read back as `0xFF`. PHP's library files hold one byte in a gap (at `0x00000`),
 which a `.hcf` cannot carry.
 
@@ -345,5 +416,7 @@ other 15 of the 17 positions switch live while driving.
 - [Hydra Chip](https://gopowerhungry.com/pages/hydra-chip) — product page, tune library
 - [Minotaur User's Guide (PDF, 89pp)](https://minotaur.appdata.powerhungrytechnologies.com/minotaur/Minotaur_User_Guide.pdf) — William Cohron, Power Hungry Performance
 - [JeliBuilt Hydra tech help](https://www.jelibuiltperformance.com/pages/hydra-help) — loading custom tunes with HydraFlash
+- [Ghidra-EEC-806x](https://github.com/RavenHursT/Ghidra-EEC-806x) — Ghidra 8065 language and emulator
+  checks used for the [calibration map](docs/tde1-calibration-map.md)
 - [TDE1 PCM code discussion](https://www.thedieselstop.com/threads/tde1-pcm.38091/)
 - [EECtuning — 7.3 diesel XDF definitions](https://eectuning.org/forums/viewtopic.php?t=22148)

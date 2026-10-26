@@ -92,6 +92,35 @@ describe("GenerateTuneBar", () => {
       expect(screen.getByText("1 shift point changed")).toBeInTheDocument();
     });
 
+    it("counts changed grid cells after the other changes, in the singular for one", () => {
+      renderBar({ changedShiftPoints: 3, idleChanged: true, changedGridCells: 12 });
+      expect(
+        screen.getByText("3 shift points changed · idle changed · 12 grid cells changed"),
+      ).toBeInTheDocument();
+    });
+
+    it("says one grid cell changed, with a capital letter when it is the only change", () => {
+      renderBar({ changedGridCells: 1 });
+
+      expect(screen.getByText("1 grid cell changed")).toBeInTheDocument();
+    });
+
+    it("counts changed lockup speeds and firmness values", () => {
+      renderBar({ changedShiftPoints: 1, changedLockupPoints: 2, changedFirmnessPoints: 1 });
+
+      expect(
+        screen.getByText(
+          "1 shift point changed · 2 lockup speeds changed · 1 firmness value changed",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("uses the singular for one lockup speed", () => {
+      renderBar({ changedLockupPoints: 1 });
+
+      expect(screen.getByText("1 lockup speed changed")).toBeInTheDocument();
+    });
+
     it("starts with a capital letter when only the idle changed", () => {
       renderBar({ idleChanged: true });
 
@@ -212,6 +241,14 @@ describe("GenerateTuneBar", () => {
   });
 
   describe("Reset all changes button", () => {
+    it("is available when only grid cells changed", () => {
+      renderBar({ changedGridCells: 2 });
+
+      expect(screen.getByRole("button", { name: "Reset all changes" })).not.toHaveAttribute(
+        "aria-disabled",
+      );
+    });
+
     it("is shown and reports a click when something changed and a handler is given", async () => {
       const user = userEvent.setup();
       const { onResetAll } = renderBar({ changedShiftPoints: 2 });
@@ -229,6 +266,22 @@ describe("GenerateTuneBar", () => {
       const button = screen.getByRole("button", { name: "Reset all changes" });
 
       expect(button).not.toHaveAttribute("aria-disabled");
+    });
+
+    it("is available when only a lockup speed changed", () => {
+      renderBar({ changedLockupPoints: 1 });
+
+      expect(screen.getByRole("button", { name: "Reset all changes" })).not.toHaveAttribute(
+        "aria-disabled",
+      );
+    });
+
+    it("is available when only a firmness value changed", () => {
+      renderBar({ changedFirmnessPoints: 1 });
+
+      expect(screen.getByRole("button", { name: "Reset all changes" })).not.toHaveAttribute(
+        "aria-disabled",
+      );
     });
 
     it("is shown but aria-disabled when nothing changed, and does nothing when pressed", async () => {

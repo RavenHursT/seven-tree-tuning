@@ -1,5 +1,7 @@
 import { CALIBRATION_IMAGE_SIZE } from "../image";
+import { findByteFunctionIssues } from "./byte-function";
 import { readByte } from "./bytes";
+import { findGridAxisIssues } from "./grid";
 import { readShiftCurve, terminatorByteOffset } from "./shift-curve";
 import { TDE1 } from "./tde1";
 import type { ShiftCurveDefinition, ShiftCurveId, StrategyDefinition } from "./tde1";
@@ -80,22 +82,53 @@ export function findLayoutIssues(
   );
 }
 
-/** Thrown when a file does not have the shift-curve layout the editor works on. */
+/**
+ * Every layout problem the editor cannot work with: the shift curves (`findLayoutIssues`), the
+ * lockup and line-pressure functions (`findByteFunctionIssues`) and the axis functions of the
+ * grids (`findGridAxisIssues`), in that order. An image that is not 256 KiB gives one issue.
+ */
+export function findCalibrationIssues(
+  image: Uint8Array,
+  strategy: StrategyDefinition = TDE1,
+): LayoutIssue[] {
+  const shiftIssues = findLayoutIssues(image, strategy);
+  if (image.length !== CALIBRATION_IMAGE_SIZE) return shiftIssues;
+  return [
+    ...shiftIssues,
+    ...findByteFunctionIssues(image, strategy),
+    ...findGridAxisIssues(image, strategy),
+  ];
+}
+
+function moreProblemsText(count: number): string {
+  if (count === 0) return "";
+  return count === 1 ? " There is 1 more problem." : ` There are ${count} more problems.`;
+}
+
+/**
+ * Thrown when a file does not have the layout the editor works on. The message names the first
+ * problem and how many more there are, so it can be shown to the user as it is.
+ */
 export class UnsupportedCalibrationError extends Error {
   readonly issues: readonly LayoutIssue[];
 
   constructor(issues: readonly LayoutIssue[], strategyId: string = TDE1.id) {
-    super(`This file does not have the ${strategyId} shift-curve layout.`);
+    const first = issues[0];
+    const detail = first ? ` ${first.message}${moreProblemsText(issues.length - 1)}` : "";
+    super(`This file does not have the ${strategyId} layout the editor works on.${detail}`);
     this.name = "UnsupportedCalibrationError";
     this.issues = issues;
   }
 }
 
-/** Throws UnsupportedCalibrationError, carrying the issues, unless the layout is supported. */
+/**
+ * Throws UnsupportedCalibrationError, carrying the issues, unless the shift curves, the lockup and
+ * line-pressure functions and the grid axis functions all have the layout the editor works on.
+ */
 export function assertSupportedLayout(
   image: Uint8Array,
   strategy: StrategyDefinition = TDE1,
 ): void {
-  const issues = findLayoutIssues(image, strategy);
+  const issues = findCalibrationIssues(image, strategy);
   if (issues.length > 0) throw new UnsupportedCalibrationError(issues, strategy.id);
 }

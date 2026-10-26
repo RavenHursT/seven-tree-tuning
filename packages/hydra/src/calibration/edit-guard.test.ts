@@ -6,14 +6,15 @@ import {
   editableOffsets,
   UnexpectedImageChangeError,
 } from "./edit-guard";
+import { gridCellOffset } from "./grid";
 import { TDE1 } from "./tde1";
 import { buildTde1Image } from "./test-images";
 
 describe("editableOffsets", () => {
   const editable = editableOffsets();
 
-  it("holds 64 offsets: 60 shift-speed bytes and 4 warm-idle bytes", () => {
-    expect(editable.size).toBe(64);
+  it("holds 2914 offsets: 60 shift-speed, 4 warm-idle, 48 lockup, 30 line-pressure and 2772 grid bytes", () => {
+    expect(editable.size).toBe(60 + 4 + 48 + 30 + 2772);
   });
 
   it("holds every shift-speed byte of every curve, padding included", () => {
@@ -42,6 +43,67 @@ describe("editableOffsets", () => {
   });
 });
 
+describe("editableOffsets: lockup, line-pressure and grid bytes", () => {
+  const editable = editableOffsets();
+
+  it("holds the y byte of every pair of every lockup and line-pressure function, padding included", () => {
+    for (const definition of [...TDE1.lockupFunctions, ...TDE1.epcFunctions]) {
+      for (let index = 0; index < definition.pairCount; index++) {
+        expect(editable.has(definition.address + 2 * index + 1)).toBe(true);
+      }
+    }
+  });
+
+  it("leaves out every pedal byte, the lock adjust functions and the unused zero functions", () => {
+    for (const definition of [...TDE1.lockupFunctions, ...TDE1.epcFunctions]) {
+      for (let index = 0; index < definition.pairCount; index++) {
+        expect(editable.has(definition.address + 2 * index)).toBe(false);
+      }
+    }
+    for (const unused of [0x146bc, 0x146d0, 0x146e4, 0x1471c, 0x14820, 0x1483c, 0x14858]) {
+      expect(editable.has(unused)).toBe(false);
+      expect(editable.has(unused + 1)).toBe(false);
+    }
+  });
+
+  it("holds every byte of every exposed grid cell", () => {
+    for (const definition of TDE1.grids) {
+      for (let row = 0; row < definition.rows; row++) {
+        for (let col = 0; col < definition.cols; col++) {
+          const start = gridCellOffset(definition, row, col);
+          for (let byte = 0; byte < definition.cellBytes; byte++) {
+            expect(editable.has(start + byte)).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
+  it("holds the last two rows and columns of the base pulse width, which a few tunes reach", () => {
+    const definition = TDE1.grids[1];
+    if (!definition) throw new Error("missing definition");
+    expect(editable.has(definition.address + 2 * 11)).toBe(true);
+    expect(editable.has(definition.address + 2 * 12 * 13)).toBe(true);
+    expect(editable.has(definition.address + 2 * 169 - 1)).toBe(true);
+  });
+
+  it("stops at the last byte of the IPR duty grid, 0x13a65", () => {
+    expect(editable.has(0x13a65)).toBe(true);
+    expect(editable.has(0x13a66)).toBe(false);
+    expect(editable.has(0x13a5e)).toBe(true);
+  });
+
+  it("leaves out the axis functions that give the grids their rows and columns", () => {
+    for (const definition of TDE1.grids) {
+      for (const axis of [definition.rowAxis, definition.colAxis]) {
+        for (let offset = axis.functionOffset; offset < axis.functionOffset + 8; offset++) {
+          expect(editable.has(offset)).toBe(false);
+        }
+      }
+    }
+  });
+});
+
 describe("changedOffsets", () => {
   it("lists nothing for identical images", () => {
     expect(changedOffsets(buildTde1Image(), buildTde1Image())).toEqual([]);
@@ -65,6 +127,38 @@ describe("assertOnlyEditableChanges", () => {
     const edited = new Uint8Array(base);
     for (const offset of editableOffsets()) edited[offset] = (edited[offset] ?? 0) ^ 0xff;
     expect(() => assertOnlyEditableChanges(base, edited)).not.toThrow();
+  });
+
+  it("refuses a changed pedal byte of a lockup function, naming its offset", () => {
+    const base = buildTde1Image();
+    const edited = new Uint8Array(base);
+    const pedalOffset = TDE1.lockupFunctions[0]?.address ?? 0;
+    edited[pedalOffset] = (edited[pedalOffset] ?? 0) ^ 0x01;
+    expect(() => assertOnlyEditableChanges(base, edited)).toThrowError(
+      expect.objectContaining({ offsets: [pedalOffset] }),
+    );
+  });
+
+  it("refuses a changed byte of an unused zero function, a lock adjust function or an axis function", () => {
+    const base = buildTde1Image();
+    for (const offset of [0x14820, 0x146bc, 0x120a0]) {
+      const edited = new Uint8Array(base);
+      edited[offset] = (edited[offset] ?? 0) ^ 0x01;
+      expect(() => assertOnlyEditableChanges(base, edited)).toThrowError(
+        expect.objectContaining({ offsets: [offset] }),
+      );
+    }
+  });
+
+  it("refuses a changed byte just outside a grid", () => {
+    const base = buildTde1Image();
+    for (const offset of [0x125cc - 1, 0x13a66]) {
+      const edited = new Uint8Array(base);
+      edited[offset] = (edited[offset] ?? 0) ^ 0x01;
+      expect(() => assertOnlyEditableChanges(base, edited)).toThrowError(
+        expect.objectContaining({ offsets: [offset] }),
+      );
+    }
   });
 
   it("accepts identical images", () => {

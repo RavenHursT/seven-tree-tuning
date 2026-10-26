@@ -49,8 +49,14 @@ export function TuneEditorProvider({ children }: { children: ReactNode }) {
 
   /** Runs `proceed` now, or after the person confirms when it would discard their changes. */
   function confirmDiscard(message: string, proceed: () => void, { shiftPointsOnly = false } = {}) {
-    const { changedShiftPoints, idleChanged } = selectChangeSummary(state);
-    const loses = changedShiftPoints > 0 || (!shiftPointsOnly && idleChanged);
+    const summary = selectChangeSummary(state);
+    // Tire compensation rewrites the shift points only; every other edit survives it.
+    const otherChanges =
+      summary.idleChanged ||
+      summary.changedLockupPoints > 0 ||
+      summary.changedFirmnessPoints > 0 ||
+      summary.changedGridCells > 0;
+    const loses = summary.changedShiftPoints > 0 || (!shiftPointsOnly && otherChanges);
     if (loses) setDiscardRequest({ message, proceed });
     else proceed();
   }
