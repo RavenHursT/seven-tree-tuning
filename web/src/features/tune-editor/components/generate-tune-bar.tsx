@@ -95,7 +95,7 @@ function OutputFileField({ fileName, onFileNameChange }: OutputFileFieldProps) {
   const hintId = `${baseId}-hint`;
 
   return (
-    <Field className="md:max-w-sm">
+    <Field className="relative md:max-w-sm">
       <FieldLabel htmlFor={inputId}>Output file</FieldLabel>
       <InputGroup>
         <InputGroupInput
@@ -110,7 +110,7 @@ function OutputFileField({ fileName, onFileNameChange }: OutputFileFieldProps) {
           <InputGroupText>.hcf</InputGroupText>
         </InputGroupAddon>
       </InputGroup>
-      <span id={hintId} className="sr-only">
+      <span id={hintId} className="sr-only max-w-px">
         The .hcf extension is added for you.
       </span>
     </Field>
