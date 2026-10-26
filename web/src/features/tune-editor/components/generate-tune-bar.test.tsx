@@ -92,6 +92,19 @@ describe("GenerateTuneBar", () => {
       expect(screen.getByText("1 shift point changed")).toBeInTheDocument();
     });
 
+    it("counts changed grid cells after the other changes, in the singular for one", () => {
+      renderBar({ changedShiftPoints: 3, idleChanged: true, changedGridCells: 12 });
+      expect(
+        screen.getByText("3 shift points changed · idle changed · 12 grid cells changed"),
+      ).toBeInTheDocument();
+    });
+
+    it("says one grid cell changed, with a capital letter when it is the only change", () => {
+      renderBar({ changedGridCells: 1 });
+
+      expect(screen.getByText("1 grid cell changed")).toBeInTheDocument();
+    });
+
     it("starts with a capital letter when only the idle changed", () => {
       renderBar({ idleChanged: true });
 
@@ -212,6 +225,14 @@ describe("GenerateTuneBar", () => {
   });
 
   describe("Reset all changes button", () => {
+    it("is available when only grid cells changed", () => {
+      renderBar({ changedGridCells: 2 });
+
+      expect(screen.getByRole("button", { name: "Reset all changes" })).not.toHaveAttribute(
+        "aria-disabled",
+      );
+    });
+
     it("is shown and reports a click when something changed and a handler is given", async () => {
       const user = userEvent.setup();
       const { onResetAll } = renderBar({ changedShiftPoints: 2 });

@@ -7,11 +7,13 @@ import {
   speedoMphToShiftPointRaw,
   STOCK_TIRE,
   tireCompensationFactor,
+  type GridId,
   type ShiftCurveId,
   type TireSize,
   type TuneValues,
 } from "@seven-tree/hydra";
 
+import { resetGrid, scaleGrid, setGridCell } from "./grid-edits";
 import type { LoadedTune, TuneSource, TuneSourceKind } from "./loaded-tune";
 
 /** A .hcf file picked before a valid chip serial was entered. */
@@ -42,6 +44,9 @@ type EditAction =
   | { type: "warmIdleChanged"; rpm: number }
   | { type: "curveReset"; curveId: ShiftCurveId }
   | { type: "allReset" }
+  | { type: "gridCellChanged"; gridId: GridId; row: number; col: number; raw: number }
+  | { type: "gridScaled"; gridId: GridId; factor: number }
+  | { type: "gridReset"; gridId: GridId }
   | { type: "tireCompensationApplied" };
 
 export type EditorAction =
@@ -142,6 +147,15 @@ function editValues(state: EditorState, action: EditAction): EditorState {
       };
     case "allReset":
       return { ...state, values: tune.originalValues };
+    case "gridCellChanged":
+      return {
+        ...state,
+        values: setGridCell(values, action.gridId, action.row, action.col, action.raw),
+      };
+    case "gridScaled":
+      return { ...state, values: scaleGrid(values, action.gridId, action.factor) };
+    case "gridReset":
+      return { ...state, values: resetGrid(values, tune.originalValues, action.gridId) };
     case "tireCompensationApplied": {
       const factor = tireCompensationFactor(state.fittedTire, state.calibrationTire);
       const scaled = scaleShiftSpeeds(tune.originalValues, factor);

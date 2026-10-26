@@ -128,10 +128,10 @@ export const TDE1_GRIDS: readonly GridDefinition[] = [
     label: "Base injector pulse width",
     group: "fuel-power",
     description:
-      "Base pulse width in timer ticks of 5.333 µs. The table is 13 x 13 but the axis functions of the shipped tunes stop at index 10, so the PCM reads rows and columns 0 to 10 only. Some library tunes extend the axes to index 12.",
+      "Base pulse width in timer ticks of 5.333 µs. The grid is 13 x 13. The axis functions of the owner's tunes stop at index 10, so the PCM never reaches rows and columns 11 and 12 there; 34 of the 35 library tunes extend the axes to index 12.",
     address: 0x1262c,
-    rows: 11,
-    cols: 11,
+    rows: 13,
+    cols: 13,
     rowStride: 13,
     cellBytes: 2,
     signed: false,

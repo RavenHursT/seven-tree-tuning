@@ -97,6 +97,23 @@ export class EditorPage {
     });
   }
 
+  /**
+   * Opens a grid module such as "Fuel and power" (collapsed at the start) and chooses one of its
+   * grids by tab name. Click only after a step that waits for the page to be interactive.
+   */
+  async openGrid(module: string, grid: string): Promise<void> {
+    const toggle = this.moduleToggle(module);
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+    await this.page.getByRole("tab", { name: new RegExp(`^${grid}`) }).click();
+  }
+
+  /** The number fields of the open grid called `label`, row by row. */
+  gridCells(label: string): Locator {
+    return this.page
+      .getByRole("group", { name: label, exact: true })
+      .getByRole("textbox", { name: new RegExp(`^${label}, `) });
+  }
+
   tireGroup(legend: string): Locator {
     return this.page.getByRole("group", { name: legend, exact: true });
   }

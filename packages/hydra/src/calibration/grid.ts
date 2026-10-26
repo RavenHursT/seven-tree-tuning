@@ -36,9 +36,10 @@ export interface GridAxisDefinition {
 /**
  * One two-dimensional grid of the TDE1 calibration. Cell (row, col) is at
  * `address + (row * rowStride + col) * cellBytes`, little-endian. The PCM reads the row from
- * `rowAxis` and the column from `colAxis`. `rows` and `cols` are the cells the PCM reads and the
- * editor exposes; `rowStride` is the number of cells in a stored row, which is larger than `cols`
- * only for the 13 x 13 base pulse width.
+ * `rowAxis` and the column from `colAxis`. `rows` and `cols` are the cells the editor exposes;
+ * `rowStride` is the number of cells in a stored row. All twelve grids expose every stored cell,
+ * so `rowStride` equals `cols`. A tune whose axis functions stop early never reaches the last
+ * rows or columns; `readGridAxes` reports those as undefined.
  */
 export interface GridDefinition {
   readonly id: GridId;

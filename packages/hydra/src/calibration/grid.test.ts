@@ -52,8 +52,8 @@ describe("gridCellOffset", () => {
   });
 
   it("rejects a cell outside the exposed rows and columns", () => {
-    expect(() => gridCellOffset(baseWidth, 11, 0)).toThrow(RangeError);
-    expect(() => gridCellOffset(baseWidth, 0, 11)).toThrow(RangeError);
+    expect(() => gridCellOffset(baseWidth, 13, 0)).toThrow(RangeError);
+    expect(() => gridCellOffset(baseWidth, 0, 13)).toThrow(RangeError);
     expect(() => gridCellOffset(baseWidth, -1, 0)).toThrow(RangeError);
     expect(() => gridCellOffset(baseWidth, 0.5, 0)).toThrow(RangeError);
   });
@@ -62,14 +62,9 @@ describe("gridCellOffset", () => {
 describe("gridCellOffsets", () => {
   it("lists every byte of every exposed cell and no other byte", () => {
     const offsets = gridCellOffsets(baseWidth);
-    expect(offsets).toHaveLength(11 * 11 * 2);
-    expect(offsets).toContain(0x1262c + 2 * 10 * 13 + 2 * 10 + 1);
-  });
-
-  it("leaves out the stored columns and rows that the PCM does not read", () => {
-    const offsets = gridCellOffsets(baseWidth);
-    expect(offsets).not.toContain(0x1262c + 2 * 11);
-    expect(offsets).not.toContain(0x1262c + 2 * (11 * 13));
+    expect(offsets).toHaveLength(13 * 13 * 2);
+    expect(offsets).toContain(0x1262c + 2 * 12 * 13 + 2 * 12 + 1);
+    expect(offsets).not.toContain(0x1262c + 2 * 13 * 13);
   });
 
   it("lists one byte for each cell of a byte grid", () => {
@@ -108,13 +103,15 @@ describe("readGrid", () => {
     expect(readGrid(image, fuelLimit).cells.slice(0, 3)).toEqual([255, 100, 0]);
   });
 
-  it("reads only the exposed 11 x 11 of the 13 x 13 base pulse width", () => {
+  it("reads all 13 x 13 cells of the base pulse width, rows and columns 11 and 12 included", () => {
     const image = blankImage();
     image.set([0x07, 0x00], 0x1262c + 2 * 13);
+    image.set([0x09, 0x00], 0x1262c + 2 * (12 * 13 + 12));
     const { cells, definition } = readGrid(image, baseWidth);
     expect(definition).toBe(baseWidth);
-    expect(cells).toHaveLength(121);
-    expect(cells[11]).toBe(7);
+    expect(cells).toHaveLength(169);
+    expect(cells[13]).toBe(7);
+    expect(cells[168]).toBe(9);
   });
 
   it("rejects an image that is not 256 KiB", () => {
@@ -135,11 +132,11 @@ describe("readGrids", () => {
 describe("writeGridCells", () => {
   it("writes cells little-endian into the stored positions and nothing else", () => {
     const image = blankImage();
-    const cells = Array.from({ length: 121 }, (_unused, index) => index + 1);
+    const cells = Array.from({ length: 169 }, (_unused, index) => index + 1);
     writeGridCells(image, baseWidth, cells);
     expect(image.slice(0x1262c, 0x1262c + 4)).toEqual(Uint8Array.of(1, 0, 2, 0));
-    expect(image.slice(0x1262c + 2 * 13, 0x1262c + 2 * 13 + 2)).toEqual(Uint8Array.of(12, 0));
-    expect(image[0x1262c + 2 * 11]).toBe(0);
+    expect(image.slice(0x1262c + 2 * 13, 0x1262c + 2 * 13 + 2)).toEqual(Uint8Array.of(14, 0));
+    expect(image[0x1262c + 2 * 169]).toBe(0);
     expect(readGrid(image, baseWidth).cells).toEqual(cells);
   });
 
