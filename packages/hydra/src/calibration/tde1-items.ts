@@ -56,8 +56,11 @@ function epcFunction(id: EpcFunctionId, label: string, address: number): EpcFunc
  * Converter lockup speeds: y = vehicle mph x 2, the same speed byte as the shift curves. Lock
  * functions give the speed above which the converter locks, unlock functions the speed below which
  * it releases. Second and third gear have ten pairs, fourth gear four. A y of 0xFE (127 mph) in a
- * lock function means the converter never locks there. In an unlock function it means the
- * converter unlocks below 127 mph, so it cannot stay locked there.
+ * lock function means the converter never locks there. For an unlock function the editor treats
+ * 127 mph as an ordinary speed and warns when it is at or above the lock speed; the exact PCM
+ * behavior at an unlock speed of 127 mph is not verified. The PCM (0x8b59a to 0x8b5df) reads the
+ * unlock function when the converter speed ratio (RAM 0x874) is at or above the minimum ratio, and
+ * the lock function otherwise, so an unlock speed at or above the lock speed cycles the converter.
  */
 export const TDE1_LOCKUP_FUNCTIONS: readonly LockupFunctionDefinition[] = [
   lockupFunction("lock-2", "2nd gear lock", 0x1468c, 10),
@@ -95,7 +98,8 @@ function axis(
 }
 
 const ICP = "Injection control pressure (ICP)";
-const EOT = "Engine oil temperature (EOT)";
+// RAM 0x116 is probably the engine oil temperature; the REA notes mark it as a guess.
+const EOT = "Engine oil temperature (probable)";
 const FUEL = "Fuel mass";
 
 function rpmAxis(functionOffset: number): GridAxisDefinition {
@@ -152,7 +156,8 @@ export const TDE1_GRIDS: readonly GridDefinition[] = [
     cellBytes: 2,
     signed: false,
     order: "row-major",
-    rowAxis: axis(ICP, 0x260, 0x12244),
+    // RAM 0x260 is named ICP by one REA note only. The other ICP grids read RAM 0x11c.
+    rowAxis: axis("ICP (RAM 0x260, unconfirmed)", 0x260, 0x12244),
     colAxis: axis(EOT, 0x116, 0x12164, true),
     valueUnit: { label: "×", perRaw: 1 / 4096 },
   },
@@ -176,7 +181,7 @@ export const TDE1_GRIDS: readonly GridDefinition[] = [
     label: "Fuel limit, sea level",
     group: "fuel-power",
     description:
-      "Fuel limit against boost and engine speed at sea level. The PCM multiplies each byte by 256 and blends this grid with the altitude grid by barometric pressure.",
+      "Fuel limit against boost and engine speed. The names sea level and altitude are inferred from the argument order in the REA check scripts. The REA model script multiplies each byte by 256 and blends this grid with the altitude grid by barometric pressure; that is inferred from the script and was not seen in the code.",
     address: 0x12c3e,
     rows: 10,
     cols: 11,
@@ -191,7 +196,8 @@ export const TDE1_GRIDS: readonly GridDefinition[] = [
     id: "fuel-limit-altitude",
     label: "Fuel limit, altitude",
     group: "fuel-power",
-    description: "Fuel limit against boost and engine speed at altitude. See the sea level grid.",
+    description:
+      "Fuel limit against boost and engine speed. The name altitude is inferred from the argument order in the REA check scripts. See the sea level grid.",
     address: 0x12cac,
     rows: 10,
     cols: 11,
@@ -207,7 +213,7 @@ export const TDE1_GRIDS: readonly GridDefinition[] = [
     label: "Base injection timing, sea level",
     group: "timing-icp",
     description:
-      "Base injection timing against fuel and engine speed at sea level, in 1/64 crank degree. The PCM blends it with the altitude grid by barometric pressure.",
+      "Base injection timing against fuel and engine speed, in 1/64 crank degree. The names sea level and altitude are inferred from the argument order in the REA check scripts. The PCM blends this grid with the altitude grid by barometric pressure.",
     address: 0x12d1a,
     rows: 10,
     cols: 11,
@@ -224,7 +230,7 @@ export const TDE1_GRIDS: readonly GridDefinition[] = [
     label: "Base injection timing, altitude",
     group: "timing-icp",
     description:
-      "Base injection timing against fuel and engine speed at altitude, in 1/64 crank degree.",
+      "Base injection timing against fuel and engine speed, in 1/64 crank degree. The name altitude is inferred from the argument order in the REA check scripts.",
     address: 0x12df6,
     rows: 10,
     cols: 11,
@@ -257,7 +263,7 @@ export const TDE1_GRIDS: readonly GridDefinition[] = [
     label: "Timing correction",
     group: "timing-icp",
     description:
-      "Timing correction against engine oil temperature and engine speed, in 1/64 crank degree. It is 0 to 12 degrees, larger when cold.",
+      "Timing correction against engine oil temperature and engine speed, in 1/64 crank degree. It is 0 to 12 degrees in the owner's tunes, larger when cold. The library tunes span -10 to 22 degrees.",
     address: 0x13032,
     rows: 7,
     cols: 7,

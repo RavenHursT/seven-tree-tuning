@@ -166,6 +166,14 @@ mph at 40%. It does not lock below 40%. The 3rd gear locks at 31 and 27 mph. The
 above 22 mph and unlock it below 19 mph. The tune `REVE` disables the 2nd and 3rd gear lockup (about
 100 mph).
 
+The routine at 0x8b59a to 0x8b5df compares the converter speed ratio (RAM 0x874) with the
+minimum-ratio word. When the ratio is at or above the minimum it reads the unlock function, otherwise
+the lock function. So an unlock speed at or above the lock speed makes the converter lock and release
+again and again. The editor warns about that at every pedal position where the lock speed is not
+127 mph. A y byte of 0xFE (127 mph) in a lock function means the converter never locks. For an
+unlock function the editor treats 127 mph as an ordinary speed. The exact PCM behavior at an unlock
+speed of 127 mph is not verified. The editor stores no lockup speed above 0xFE.
+
 Other items that decide lockup:
 
 | Image address | Meaning |
@@ -238,8 +246,8 @@ regulator.
 | 0x128de to 0x12a3d | 11 × 16 signed words | cold correction of the multiplier, against boost and engine speed (0 in the owner's tunes) | not edited |
 | 0x12a3e to 0x12a5d | 16 words, all 0 | not referenced. Perhaps an unused twelfth row. | not edited |
 | 0x12a5e to 0x12c3d | 15 × 16 signed words | fuel demand against pedal position and engine speed | edited |
-| 0x12c3e | 10 × 11 bytes | fuel limit against boost and engine speed, sea level | edited |
-| 0x12cac | 10 × 11 bytes | the same, altitude | edited |
+| 0x12c3e | 10 × 11 bytes | fuel limit against boost and engine speed, sea level (the name is inferred) | edited |
+| 0x12cac | 10 × 11 bytes | the same, altitude (the name is inferred) | edited |
 
 Notes on each item:
 
@@ -262,13 +270,17 @@ Notes on each item:
   0x82c05).
 - **Pulse-width multiplier (0x1277e).** Earlier notes in this repository called the start of this
   structure the power block and gave the address 0x12798. The structure starts at 0x1277e. The
-  columns are function 0x12164 of the temperature in RAM 0x116 (probably engine oil). One summary
+  columns are function 0x12164 of the temperature in RAM 0x116 (probably engine oil; the editor says "probable"). One summary
   note gives RAM 0x118, but the same notes' read descriptors give 0x116. The rows are function
-  0x12244 of RAM 0x260, which one note names ICP; the other ICP grids use RAM 0x11c.
+  0x12244 of RAM 0x260, which one note names ICP; the other ICP grids use RAM 0x11c. The editor
+  labels this axis "ICP (RAM 0x260, unconfirmed)".
 - **Cold correction (0x128de).** Signed words. The sources name it a cold correction of the
   multiplier and give the axes as boost and engine speed.
-- **Fuel limit (0x12c3e and 0x12cac).** Byte grids for sea level and for altitude. The sources
-  do not record the unit or how the code chooses between them.
+- **Fuel limit (0x12c3e and 0x12cac).** Byte grids. The names sea level (0x12c3e) and altitude
+  (0x12cac) are inferred from the argument order in the REA check scripts, not seen in the code.
+  The REA model script multiplies each byte by 256 and blends the two grids by barometric
+  pressure. That is also inferred from the script; it was not observed in the code. The sources do
+  not record the unit or how the code chooses between the grids.
 
 Units of this group: pulse width in timer ticks (5.333 µs). Other units are unknown, unless the
 items above or the notes say one.
@@ -282,16 +294,18 @@ to the grids move the outputs as predicted. Block A: 1,260 of 1,260 runs match. 
 
 | Image address | Layout | Meaning | Editor |
 |---|---|---|---|
-| 0x12d1a | 10 × 11 signed words | base injection timing against fuel and engine speed, sea level | edited |
-| 0x12df6 | 10 × 11 signed words | the same, altitude. The code blends the two with barometric pressure. | edited |
+| 0x12d1a | 10 × 11 signed words | base injection timing against fuel and engine speed, sea level (the name is inferred) | edited |
+| 0x12df6 | 10 × 11 signed words | the same, altitude (the name is inferred). The code blends the two with barometric pressure. | edited |
 | 0x12ed2 to 0x13031 | 11 × 16 words | time added to the timing, against ICP and oil temperature (injector delay, an inference) | edited |
-| 0x13032 to 0x13093 | 7 × 7 signed words | timing correction against oil temperature and engine speed, 0 to 12 degrees, larger when cold | edited |
+| 0x13032 to 0x13093 | 7 × 7 signed words | timing correction against oil temperature and engine speed. The owner's tunes hold 0 to 12 degrees, larger when cold; the library tunes span -10 to 22 degrees. | edited |
 | 0x13094 to 0x1312d | 7 × 11 words | desired ICP against fuel and engine speed | edited |
 | 0x13974 | 11 × 11 words | IPR duty feed-forward map, against desired ICP and an oil-flow value (Rf6 + 0x146) | edited |
 
 Notes:
 
 - **Timing** is an angle, 1/64 crank degree. Task 0x840b8 handles injection timing. RAM 0x10e holds the desired timing.
+- **Sea level and altitude** (0x12d1a and 0x12df6) are names inferred from the argument order in the
+  REA check scripts, as for the fuel limit.
 - **Desired ICP and IPR duty** come from task 0x83c1e. The feed-forward map at 0x13974 is the IPR
   duty map. It is not a power map.
 - **Extent of the IPR map.** The notes give the end of the structure as 0x13a5d. The bytes settle

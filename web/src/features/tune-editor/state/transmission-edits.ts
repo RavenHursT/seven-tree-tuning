@@ -33,7 +33,9 @@ function withLockupSpeed(
 ): TuneValues {
   const fn = lockupFunctionsOf(tune).find((item) => item.definition.id === functionId);
   if (!fn || !Number.isFinite(speedRaw)) return values;
-  return setFunctionPointRaw(values, fn, index, speedRaw);
+  // 254 is 127 mph, never for a lock speed. A byte of 255 (127.5 mph) is not offered.
+  const clamped = Math.min(Math.max(speedRaw, 0), LOCKUP_NEVER_SPEED_RAW);
+  return setFunctionPointRaw(values, fn, index, clamped);
 }
 
 function resetFunction(

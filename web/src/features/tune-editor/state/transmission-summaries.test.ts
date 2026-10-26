@@ -48,7 +48,7 @@ describe("summarizeConverterLockup", () => {
 });
 
 describe("summarizeConverterLockup with an unlock speed of 127 mph", () => {
-  it("shows the unlock speed as 127, and a lock speed of 127 mph as never", () => {
+  it("shows the unlock speed as 127 with the cycling warning, and a lock speed of 127 mph as never", () => {
     const state = apply(
       loadedState(),
       { type: "lockupSpeedChanged", functionId: "unlock-4", index: 0, mph: 127 },
@@ -56,7 +56,7 @@ describe("summarizeConverterLockup with an unlock speed of 127 mph", () => {
     );
 
     expect(summarizeConverterLockup(state)).toBe(
-      "4th 30/127 · 3rd 27–31/17 · 2nd never–32/15 · 2 changed",
+      "4th 30/127 · 3rd 27–31/17 · 2nd never–32/15 · 2 changed · converter cycling warning",
     );
   });
 });

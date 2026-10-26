@@ -24,6 +24,8 @@ export interface LockupTableView {
   readonly functionId: LockupFunctionId;
   readonly title: string;
   readonly kind: "lock" | "unlock";
+  /** The most the Speedometer field accepts: the speedometer value that stores 127 mph (254). */
+  readonly speedometerMaxMph: number;
   /** Top to bottom as shown: closed pedal first. Names its rows by `pointIndex`. */
   readonly rows: readonly LockupCurveRow[];
 }
@@ -73,31 +75,24 @@ function visiblePedalRows(fn: ByteFunction): PedalRow[] {
     .reverse();
 }
 
-/** Where the converter cannot stay locked: the pedal positions where the lock curve is a real speed. */
-type LockSpeedAt = (pedalRaw: number) => number;
-
 function lockupRows(
   fn: ByteFunction,
   speeds: readonly number[],
   originals: readonly number[],
   factor: number,
-  // Only given for an unlock curve: the lock speed of the same gear at a pedal byte.
-  lockSpeedAt?: LockSpeedAt,
+  kind: "lock" | "unlock",
 ): LockupCurveRow[] {
   return visiblePedalRows(fn).map((row) => {
     const speedRaw = speeds[row.pointIndex] ?? 0;
     const originalRaw = originals[row.pointIndex] ?? 0;
-    const isNever = speedRaw === LOCKUP_NEVER_SPEED_RAW;
     return {
       ...row,
       speedMph: speedRawToMph(speedRaw),
       speedRaw,
       speedoMph: shiftPointToSpeedoMph(speedRaw, factor),
       originalSpeedMph: speedRawToMph(originalRaw),
-      // 127 mph is "never" for a lock speed only. An unlock speed of 127 mph unlocks below 127 mph.
-      never: lockSpeedAt === undefined && isNever,
-      cannotStayLocked:
-        lockSpeedAt !== undefined && isNever && lockSpeedAt(row.pedalRaw) < LOCKUP_NEVER_SPEED_RAW,
+      // 127 mph is "never" for a lock speed only. The editor shows an unlock speed as a number.
+      never: kind === "lock" && speedRaw >= LOCKUP_NEVER_SPEED_RAW,
       changed: speedRaw !== originalRaw,
     };
   });
@@ -113,20 +108,17 @@ export function selectLockupTables(state: EditorState): LockupTableView[] {
     const fn = functions.find((item) => item.definition.id === id);
     if (!fn) return [];
     const kind = id.startsWith("lock-") ? "lock" : "unlock";
-    const lock = functions.find((item) => item.definition.id === `lock-${id.split("-")[1]}`);
-    const lockPoints = lock ? curvePoints(lock, values.lockupSpeedsRaw[lock.definition.id]) : [];
-    const lockSpeedAt: LockSpeedAt = (pedalRaw) =>
-      lockPoints.length > 0 ? evaluateShiftSpeedRaw(lockPoints, pedalRaw) : LOCKUP_NEVER_SPEED_RAW;
     return {
       functionId: id,
       title: fn.definition.label,
       kind,
+      speedometerMaxMph: shiftPointToSpeedoMph(LOCKUP_NEVER_SPEED_RAW, factor),
       rows: lockupRows(
         fn,
         values.lockupSpeedsRaw[id],
         tune.originalValues.lockupSpeedsRaw[id],
         factor,
-        kind === "unlock" ? lockSpeedAt : undefined,
+        kind,
       ),
     } satisfies LockupTableView;
   });
@@ -186,11 +178,15 @@ function curvePoints(fn: ByteFunction, speeds: readonly number[]) {
   }));
 }
 
-/** Unlock minus lock in mph where the converter could cycle, or undefined where it cannot. */
+/**
+ * Unlock minus lock in mph where the converter could cycle, or undefined where it cannot. The PCM
+ * (0x8b59a to 0x8b5df) reads the unlock function when the converter speed ratio is at or above the
+ * minimum ratio, else the lock function, so an unlock speed at or above the lock speed cycles the
+ * converter. That holds for an unlock speed of 127 mph too. Only a lock speed of 127 mph (never)
+ * cannot cycle.
+ */
 function cycleMarginMph(lockRaw: number, unlockRaw: number): number | undefined {
-  // Never locking cannot cycle. An unlock speed of 127 mph is not a cycle either: the converter
-  // cannot stay locked there, which the row says (`cannotStayLocked`).
-  if (lockRaw >= LOCKUP_NEVER_SPEED_RAW || unlockRaw >= LOCKUP_NEVER_SPEED_RAW) return undefined;
+  if (lockRaw >= LOCKUP_NEVER_SPEED_RAW) return undefined;
   const margin = unlockRaw - lockRaw;
   return margin >= -SPEED_TIE_TOLERANCE_RAW ? speedRawToMph(Math.max(margin, 0)) : undefined;
 }
@@ -233,7 +229,8 @@ function describeRange(range: PedalRange): string {
 /**
  * One line per pedal range where a gear's unlock speed is at or above its lock speed, so the
  * converter would lock and release again. Both functions are read the way the PCM reads them, at
- * every pedal byte 0..255. Where either one is "never" there is nothing to cycle and nothing shows.
+ * every pedal byte 0..255. Where the lock speed is "never" there is nothing to cycle and nothing
+ * shows. An unlock speed of 127 mph is an ordinary speed here and warns like any other.
  */
 export function selectLockupWarnings(state: EditorState): ShiftOverlapView[] {
   const { tune, values } = state;

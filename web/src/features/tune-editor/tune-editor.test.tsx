@@ -206,6 +206,16 @@ describe("tune editor", () => {
     expect(curveInput("3→4 (overdrive)", "0%", "shift point")).toHaveValue("36.5");
   });
 
+  it("says that tire compensation does not change the lockup speeds", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+
+    expect(
+      screen.getByText(/Replaces every shift point with the base tune's value/),
+    ).toHaveTextContent("Lockup speeds are not changed.");
+  });
+
   it("updates the speedometer values when a size is chosen from the searchable list", async () => {
     const user = userEvent.setup();
     renderEditor();

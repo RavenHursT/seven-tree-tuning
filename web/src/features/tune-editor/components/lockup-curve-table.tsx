@@ -28,11 +28,6 @@ export interface LockupCurveRow {
   originalSpeedMph: number;
   /** A lock curve only: the stored speed is 127 mph, so the converter never locks at this pedal. */
   never: boolean;
-  /**
-   * An unlock curve only: the stored speed is 127 mph (it unlocks below 127 mph) where the lock
-   * curve is a real speed, so the converter cannot stay locked at this pedal.
-   */
-  cannotStayLocked: boolean;
   changed: boolean;
 }
 
@@ -45,6 +40,8 @@ export interface LockupCurveTableProps {
   /** "lock speed" or "unlock speed": names the stored column and its fields. */
   speedLabel: string;
   rows: readonly LockupCurveRow[];
+  /** The most the Speedometer field takes: the speedometer value that stores 127 mph. */
+  speedometerMaxMph: number;
   onSpeedChange(pointIndex: number, mph: number): void;
   onSpeedoChange(pointIndex: number, mph: number): void;
   onNever(pointIndex: number): void;
@@ -71,6 +68,7 @@ interface LockupRowProps {
   speedLabel: string;
   row: LockupCurveRow;
   speedometerStep: number;
+  speedometerMaxMph: number;
   onSpeedChange(pointIndex: number, mph: number): void;
   onSpeedoChange(pointIndex: number, mph: number): void;
   onNever(pointIndex: number): void;
@@ -82,12 +80,12 @@ function LockupRow({
   speedLabel,
   row,
   speedometerStep,
+  speedometerMaxMph,
   onSpeedChange,
   onSpeedoChange,
   onNever,
 }: LockupRowProps) {
   const originalId = React.useId();
-  const noteId = React.useId();
   const name = `${title}, ${spokenPedal(row)}`;
   // The speedometer value of a "never" row is above 127 mph, so the row says which text to show.
   const format = (mph: number) => (row.never ? "never" : mph.toFixed(1));
@@ -107,11 +105,7 @@ function LockupRow({
         <div className="flex flex-col gap-1">
           <NumberField
             aria-label={`${name}, ${speedLabel} (mph)`}
-            aria-describedby={
-              [row.changed ? originalId : undefined, row.cannotStayLocked ? noteId : undefined]
-                .filter(Boolean)
-                .join(" ") || undefined
-            }
+            aria-describedby={row.changed ? originalId : undefined}
             className="w-20 max-sm:w-16"
             value={row.speedMph}
             onValueChange={(mph) => onSpeedChange(row.pointIndex, mph)}
@@ -127,8 +121,8 @@ function LockupRow({
                 variant="ghost"
                 size="xs"
                 aria-label={`${name}, set to never`}
-                aria-pressed={row.never}
-                className="px-1"
+                aria-disabled={row.never || undefined}
+                className="px-1 aria-disabled:pointer-events-none aria-disabled:opacity-50"
                 onClick={() => {
                   if (!row.never) onNever(row.pointIndex);
                 }}
@@ -142,12 +136,6 @@ function LockupRow({
               </span>
             ) : null}
           </div>
-          {row.cannotStayLocked ? (
-            // w-0 min-w-full: the note wraps to the width of the field and never widens the column.
-            <p id={noteId} className="w-0 min-w-full text-[0.625rem] leading-tight text-warning">
-              converter cannot stay locked here
-            </p>
-          ) : null}
         </div>
       </TableCell>
       <TableCell className="align-top max-sm:px-1">
@@ -157,6 +145,7 @@ function LockupRow({
           value={row.speedoMph}
           onValueChange={(mph) => onSpeedoChange(row.pointIndex, mph)}
           min={0}
+          max={speedometerMaxMph}
           step={speedometerStep}
           format={format}
         />
@@ -176,6 +165,7 @@ export function LockupCurveTable({
   description,
   speedLabel,
   rows,
+  speedometerMaxMph,
   onSpeedChange,
   onSpeedoChange,
   onNever,
@@ -215,6 +205,7 @@ export function LockupCurveTable({
               speedLabel={speedLabel}
               row={row}
               speedometerStep={speedometerStep}
+              speedometerMaxMph={speedometerMaxMph}
               onSpeedChange={onSpeedChange}
               onSpeedoChange={onSpeedoChange}
               onNever={onNever}

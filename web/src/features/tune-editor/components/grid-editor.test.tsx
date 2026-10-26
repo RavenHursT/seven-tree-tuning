@@ -57,6 +57,7 @@ describe("GridEditor layout", () => {
     render(<GridEditor {...props()} />);
 
     expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
+      "Rows, columns",
       "500",
       "1000",
       "index 2 (not reached by this tune)",
@@ -66,6 +67,15 @@ describe("GridEditor layout", () => {
       "12.5",
     ]);
     expect(screen.getAllByRole("textbox")).toHaveLength(6 + 1);
+  });
+
+  it("names the corner cell with a header that only screen readers see", () => {
+    render(<GridEditor {...props()} />);
+
+    const corner = screen.getByRole("columnheader", { name: "Rows, columns" });
+
+    expect(corner.tagName).toBe("TH");
+    expect(within(corner).getByText("Rows, columns")).toHaveClass("sr-only");
   });
 
   it("shows each cell as its display value, with the decimals of the format", () => {
@@ -238,6 +248,67 @@ describe("GridEditor changed cells", () => {
     rerender(<GridEditor {...props({ cells: [11, 21, 30, 40, 50, 60] })} />);
     expect(screen.getByRole("status")).toHaveTextContent("2 cells changed");
   });
+
+  it("shows the count as visible text that follows every keystroke", async () => {
+    const { rerender } = render(<GridEditor {...props()} />);
+    await userEvent.click(cell(0, 0));
+    await userEvent.keyboard("7");
+
+    rerender(<GridEditor {...props({ cells: [7, 20, 30, 40, 50, 60] })} />);
+
+    expect(screen.getByText("1 cell changed")).toBeVisible();
+    expect(screen.getByText("1 cell changed")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("keeps the announcement as it was while a cell is being typed in, and updates it on Tab", async () => {
+    const { rerender } = render(<GridEditor {...props()} />);
+    const status = screen.getByRole("status");
+    await userEvent.click(cell(0, 0));
+    await userEvent.keyboard("7");
+    rerender(<GridEditor {...props({ cells: [7, 20, 30, 40, 50, 60] })} />);
+    await userEvent.keyboard("7");
+    rerender(<GridEditor {...props({ cells: [77, 20, 30, 40, 50, 60] })} />);
+
+    expect(status).toHaveTextContent("No changes");
+
+    await userEvent.tab();
+
+    expect(screen.getByRole("status")).toBe(status);
+    expect(status).toHaveTextContent("Fuel demand: 1 cell changed");
+  });
+
+  it("updates the announcement on Enter", async () => {
+    const { rerender } = render(<GridEditor {...props()} />);
+    await userEvent.click(cell(0, 1));
+    await userEvent.keyboard("5");
+    rerender(<GridEditor {...props({ cells: [10, 5, 30, 40, 50, 60] })} />);
+    expect(screen.getByRole("status")).toHaveTextContent("No changes");
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(screen.getByRole("status")).toHaveTextContent("1 cell changed");
+  });
+
+  it("goes back to the announced count on Escape, which puts the old value back", async () => {
+    const onCellChange = vi.fn();
+    const { rerender } = render(<GridEditor {...props({ onCellChange })} />);
+    await userEvent.click(cell(0, 1));
+    await userEvent.keyboard("5");
+    rerender(<GridEditor {...props({ onCellChange, cells: [10, 5, 30, 40, 50, 60] })} />);
+
+    await userEvent.keyboard("{Escape}");
+    rerender(<GridEditor {...props({ onCellChange })} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("No changes");
+  });
+
+  it("announces a change made with the Scale or Reset buttons at once", () => {
+    const { rerender } = render(<GridEditor {...props()} />);
+
+    rerender(<GridEditor {...props({ cells: [11, 22, 33, 44, 55, 66] })} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("6 cells changed");
+  });
 });
 
 describe("GridEditor keyboard", () => {
@@ -253,6 +324,66 @@ describe("GridEditor keyboard", () => {
     expect(cell(1, 0)).toHaveFocus();
     await userEvent.keyboard("{ArrowUp}");
     expect(cell(0, 0)).toHaveFocus();
+  });
+
+  it("moves left and right only when the caret is at the start or end of the text", async () => {
+    render(<GridEditor {...props()} />);
+    const field = cell(0, 1) as HTMLInputElement;
+    await userEvent.click(field);
+
+    field.setSelectionRange(1, 1);
+    await userEvent.keyboard("{ArrowRight}");
+    expect(field).toHaveFocus();
+    expect(field.selectionStart).toBe(2);
+
+    await userEvent.keyboard("{ArrowRight}");
+    expect(cell(0, 2)).toHaveFocus();
+
+    await userEvent.click(cell(0, 1));
+    (cell(0, 1) as HTMLInputElement).setSelectionRange(1, 1);
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(cell(0, 1)).toHaveFocus();
+    expect((cell(0, 1) as HTMLInputElement).selectionStart).toBe(0);
+
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(cell(0, 0)).toHaveFocus();
+  });
+
+  it("moves left and right when the whole text is selected", async () => {
+    render(<GridEditor {...props()} />);
+    const field = cell(0, 1) as HTMLInputElement;
+    await userEvent.click(field);
+    field.setSelectionRange(0, 2);
+
+    await userEvent.keyboard("{ArrowRight}");
+
+    expect(cell(0, 2)).toHaveFocus();
+  });
+
+  it("does not move left or right with Alt, Ctrl, Meta or Shift held", async () => {
+    render(<GridEditor {...props()} />);
+    const field = cell(0, 1) as HTMLInputElement;
+    await userEvent.click(field);
+
+    for (const modifier of ["Alt", "Control", "Meta", "Shift"]) {
+      field.setSelectionRange(0, 2);
+      await userEvent.keyboard(`{${modifier}>}{ArrowRight}{/${modifier}}`);
+      expect(field, modifier).toHaveFocus();
+      field.setSelectionRange(0, 2);
+      await userEvent.keyboard(`{${modifier}>}{ArrowLeft}{/${modifier}}`);
+      expect(field, modifier).toHaveFocus();
+    }
+  });
+
+  it("still moves up and down from any caret position", async () => {
+    render(<GridEditor {...props()} />);
+    const field = cell(0, 1) as HTMLInputElement;
+    await userEvent.click(field);
+    field.setSelectionRange(1, 1);
+
+    await userEvent.keyboard("{ArrowDown}");
+
+    expect(cell(1, 1)).toHaveFocus();
   });
 
   it("stays on the edge cell at the edge of the grid", async () => {

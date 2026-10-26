@@ -157,6 +157,115 @@ describe("grid definitions", () => {
   });
 });
 
+describe("the numbers of every item, written out", () => {
+  // Every number below is written out from the calibration map and the REA findings, not read from
+  // the definitions, so a typo in a definition fails here.
+  const lastByteOfGrid = TDE1_GRIDS.map(
+    (grid) => grid.address + grid.rows * grid.cols * grid.cellBytes - 1,
+  );
+
+  it("ends every grid at the address the calibration map gives", () => {
+    expect(lastByteOfGrid).toEqual([
+      0x1262b, 0x1277d, 0x128dd, 0x12c3d, 0x12cab, 0x12d19, 0x12df5, 0x12ed1, 0x13031, 0x13093,
+      0x1312d, 0x13a65,
+    ]);
+  });
+
+  it("gives every grid the cell count of the calibration map", () => {
+    expect(TDE1_GRIDS.map((grid) => grid.rows * grid.cols)).toEqual([
+      48, 169, 176, 240, 110, 110, 110, 110, 176, 49, 77, 121,
+    ]);
+  });
+
+  it("ends every lockup and line-pressure function at the byte the calibration map implies", () => {
+    const last = [...TDE1_LOCKUP_FUNCTIONS, ...TDE1_EPC_FUNCTIONS].map(
+      (definition) => definition.address + 2 * definition.pairCount - 1,
+    );
+    expect(last).toEqual([
+      0x1469f, 0x146b3, 0x146bb, 0x146ff, 0x14713, 0x1471b, 0x1483b, 0x14857, 0x14873,
+    ]);
+  });
+
+  it("reads each axis from the RAM address and with the signedness the REA findings give", () => {
+    const axes = TDE1_GRIDS.map((grid) => [
+      grid.rowAxis.ramAddress,
+      grid.rowAxis.breakpointsSigned,
+      grid.colAxis.ramAddress,
+      grid.colAxis.breakpointsSigned,
+    ]);
+    expect(axes).toEqual([
+      [0x18e, false, 0xb6, false],
+      [0x11c, false, 0x194, false],
+      [0x260, false, 0x116, true],
+      [0xb8, false, 0xb6, false],
+      [0x16e, true, 0xb6, false],
+      [0x16e, true, 0xb6, false],
+      [0x158, false, 0xb6, false],
+      [0x158, false, 0xb6, false],
+      [0x11c, false, 0x116, true],
+      [0x116, true, 0xb6, false],
+      [0x158, false, 0xb6, false],
+      [0x264, false, 0x11e, false],
+    ]);
+  });
+
+  it("stores each lockup speed as an unsigned byte and each line-pressure adder as a signed byte", () => {
+    expect(TDE1_LOCKUP_FUNCTIONS.map((definition) => definition.signedY)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(TDE1_EPC_FUNCTIONS.map((definition) => definition.signedY)).toEqual([true, true, true]);
+  });
+});
+
+describe("what the labels and descriptions claim", () => {
+  const byId = (id: string) => {
+    const grid = TDE1_GRIDS.find((candidate) => candidate.id === id);
+    if (!grid) throw new Error(`no grid ${id}`);
+    return grid;
+  };
+
+  it("marks the sea level and altitude split of the fuel limit and base timing as inferred", () => {
+    for (const id of [
+      "fuel-limit-sea-level",
+      "fuel-limit-altitude",
+      "base-timing-sea-level",
+      "base-timing-altitude",
+    ]) {
+      expect(byId(id).description, id).toMatch(/inferred from the argument order/);
+    }
+  });
+
+  it("says the fuel limit scale and the blend are inferred from the REA model script", () => {
+    const text = byId("fuel-limit-sea-level").description;
+    expect(text).toContain("REA model script");
+    expect(text).toContain("not seen in the code");
+    expect(text).not.toMatch(/The PCM multiplies/);
+  });
+
+  it("limits the 0 to 12 degree range of the timing correction to the owner's tunes", () => {
+    const text = byId("timing-correction-eot").description;
+    expect(text).toContain("owner's tunes");
+    expect(text).toContain("-10 to 22 degrees");
+  });
+
+  it("names the multiplier row axis as unconfirmed and the oil temperature axis as probable", () => {
+    expect(byId("pulse-width-multiplier").rowAxis.name).toBe("ICP (RAM 0x260, unconfirmed)");
+    expect(byId("pulse-width-multiplier").colAxis.name).toBe("Engine oil temperature (probable)");
+    expect(byId("timing-time-adder").colAxis.name).toBe("Engine oil temperature (probable)");
+    expect(byId("timing-correction-eot").rowAxis.name).toBe("Engine oil temperature (probable)");
+  });
+
+  it("keeps the confirmed ICP axes named as ICP", () => {
+    expect(byId("base-pulse-width").rowAxis.name).toBe("Injection control pressure (ICP)");
+    expect(byId("timing-time-adder").rowAxis.name).toBe("Injection control pressure (ICP)");
+  });
+});
+
 describe("the items do not overlap each other or the shift curves and idle curve", () => {
   it("covers no byte twice", () => {
     const claimed = new Map<number, string>();

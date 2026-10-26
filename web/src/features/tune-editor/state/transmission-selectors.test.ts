@@ -107,8 +107,8 @@ describe("selectLockupTables", () => {
 });
 
 describe("an unlock speed of 127 mph", () => {
-  // Unlock 2nd gear at 127 mph at every pedal position: it unlocks below 127 mph, so the
-  // converter cannot stay locked. The lock curve is never below 40% pedal and a real speed above.
+  // Unlock 2nd gear at 127 mph at every pedal position. The lock curve is never up to 40% pedal
+  // and a real speed above. The editor treats 127 as an ordinary unlock speed.
   function unlockedEverywhere(): EditorState {
     return apply(
       loadedState(),
@@ -124,27 +124,97 @@ describe("an unlock speed of 127 mph", () => {
     expect(rows.map((row) => row.never)).toEqual([false, false]);
   });
 
-  it("is noted as unable to stay locked where the lock curve is a real speed", () => {
+  it("puts no note on any row", () => {
     const rows = lockupTable(unlockedEverywhere(), "unlock-2").rows;
 
-    // Listed closed first. The lock curve is never at closed pedal and 32 mph at wide open.
-    expect(rows.map((row) => row.cannotStayLocked)).toEqual([false, true]);
+    expect(rows.every((row) => !("cannotStayLocked" in row))).toBe(true);
   });
 
-  it("is not noted on a lock curve or at 126.5 mph", () => {
+  it("raises the cycling warning where the lock curve is a real speed", () => {
+    const warnings = selectLockupWarnings(unlockedEverywhere());
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.title).toBe("2nd gear unlocks at or above its lock speed");
+    expect(warnings[0]?.detail).toMatch(
+      /^Pedal \d+–100%: the unlock speed is up to [\d.]+ mph above/,
+    );
+  });
+
+  it("raises no warning at a pedal position where the lock speed is never", () => {
+    const warnings = selectLockupWarnings(unlockedEverywhere());
+
+    // The lock curve is never from closed pedal to 40%, so the warning starts above 40%.
+    expect(warnings[0]?.id).toMatch(/^2:10\d-255$/);
+  });
+
+  it("raises no warning at 126.5 mph where the lock speed is higher", () => {
+    const state = apply(
+      loadedState(),
+      { type: "lockupSpeedChanged", functionId: "lock-2", index: 0, mph: 127 },
+      { type: "lockupSpeedChanged", functionId: "lock-2", index: 1, mph: 127 },
+      { type: "lockupSpeedChanged", functionId: "lock-2", index: 2, mph: 127 },
+      { type: "lockupSpeedChanged", functionId: "unlock-2", index: 0, mph: 126.5 },
+    );
+
+    expect(selectLockupWarnings(state)).toEqual([]);
+  });
+});
+
+describe("a lockup speed above 127 mph", () => {
+  it("is stored as 254 (never) when the speedometer value is 200", () => {
     const state = apply(loadedState(), {
-      type: "lockupSpeedChanged",
-      functionId: "unlock-2",
+      type: "lockupSpeedometerChanged",
+      functionId: "lock-2",
       index: 0,
-      mph: 126.5,
+      mph: 200,
     });
 
-    expect(lockupTable(state, "unlock-2").rows.some((row) => row.cannotStayLocked)).toBe(false);
-    expect(lockupTable(state, "lock-2").rows.some((row) => row.cannotStayLocked)).toBe(false);
+    const wideOpen = lockupTable(state, "lock-2").rows.at(-1);
+
+    expect(wideOpen).toMatchObject({ speedRaw: 254, speedMph: 127, never: true });
   });
 
-  it("raises no cycling warning", () => {
-    expect(selectLockupWarnings(unlockedEverywhere())).toEqual([]);
+  it("is stored as 254 when the stored-speed field is 200 on an unlock curve", () => {
+    const state = apply(loadedState(), {
+      type: "lockupSpeedChanged",
+      functionId: "unlock-3",
+      index: 0,
+      mph: 200,
+    });
+
+    const wideOpen = lockupTable(state, "unlock-3").rows.at(-1);
+
+    expect(wideOpen).toMatchObject({ speedRaw: 254, speedMph: 127, never: false });
+  });
+
+  it("is never stored as 255 by any route", () => {
+    const state = apply(
+      loadedState(),
+      { type: "lockupSpeedometerChanged", functionId: "lock-4", index: 0, mph: 127.4 },
+      { type: "lockupSpeedChanged", functionId: "unlock-4", index: 0, mph: 127.4 },
+    );
+
+    expect(lockupTable(state, "lock-4").rows.at(-1)?.speedRaw).toBe(254);
+    expect(lockupTable(state, "unlock-4").rows.at(-1)?.speedRaw).toBe(254);
+  });
+
+  it("limits the speedometer field to the value that stores 254, for the tires on the truck", () => {
+    const base = loadedState();
+    const fitted = apply(
+      base,
+      { type: "calibrationTireChanged", tire: parseTireSize("265/75R16")! },
+      { type: "fittedTireChanged", tire: parseTireSize("315/75R16")! },
+    );
+
+    expect(lockupTable(base, "lock-2").speedometerMaxMph).toBe(127);
+    expect(lockupTable(fitted, "lock-2").speedometerMaxMph).toBeGreaterThan(127);
+    const wideOpen = apply(fitted, {
+      type: "lockupSpeedometerChanged",
+      functionId: "lock-2",
+      index: 0,
+      mph: lockupTable(fitted, "lock-2").speedometerMaxMph,
+    });
+    expect(lockupTable(wideOpen, "lock-2").rows.at(-1)?.speedRaw).toBe(254);
   });
 });
 

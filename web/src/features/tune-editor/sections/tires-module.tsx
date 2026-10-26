@@ -113,7 +113,7 @@ function TireCompensation() {
         Set shift points for these tires
       </Button>
       <p className="text-xs text-muted-foreground">
-        {`Replaces every shift point with the base tune's value × ${(1 / factor).toFixed(4)}, so each shift happens at the same road speed as on ${calibrationSize} tires. Use it on a tune that is not already tire-compensated.`}
+        {`Replaces every shift point with the base tune's value × ${(1 / factor).toFixed(4)}, so each shift happens at the same road speed as on ${calibrationSize} tires. Use it on a tune that is not already tire-compensated. Lockup speeds are not changed.`}
       </p>
     </div>
   );

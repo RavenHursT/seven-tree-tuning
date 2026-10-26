@@ -53,7 +53,7 @@ feel and lockup behaviour, and the larger tires shift the vehicle-speed and shif
 | `docs/tde1-calibration-map.md` | Every decoded TDE1 calibration item: address, layout, units, reader, evidence. |
 | `tools/` | Decryptor/encryptor, the tire-compensation script, and format notes. |
 | `web/` | The web tune editor (Next.js). See [Web tune editor](#web-tune-editor). |
-| `packages/hydra/` | `@seven-tree/hydra`: the `.hcf` / `.efu` codecs, the TDE1 shift curves and idle, and the tire math. `tools/` and `web/` both use it. |
+| `packages/hydra/` | `@seven-tree/hydra`: the `.hcf` / `.efu` codecs, the TDE1 items the editor reads and writes (shift curves, idle, converter lockup, shift firmness and the fuel, power, timing and ICP grids), and the tire math. `tools/` and `web/` both use it. |
 
 The base files are unmodified byte-for-byte copies, verified by SHA-256. Each `-TIRECOMP-UPDOWN` file
 differs from its base by exactly 60 bytes: 30 upshift-speed bytes and 30 downshift-speed bytes. Full
@@ -278,8 +278,9 @@ ICP are recorded locally and are not yet in the fork.
 
 ## Web tune editor
 
-`web/` is a Next.js app that edits the shift schedule and the warm idle of a TDE1 tune, then saves a
-new `.hcf` for the chip.
+`web/` is a Next.js app that edits a TDE1 tune and saves a new `.hcf` for the chip. It edits the shift
+schedule, the warm idle, the converter lockup speeds, the shift firmness and the fuel, power, timing
+and ICP grids.
 
 ### Run it
 
@@ -326,7 +327,8 @@ serial shows "The chip serial does not match this file."
 - **Set shift points for these tires:** replaces every shift point with the base tune's value ×
   calibration diameter ÷ fitted diameter. With LT265/75R16 as the calibration size and 315/75R16
   fitted, the five `REVD-DOWNSHIFTCHG` tunes become the shipped `-TIRECOMP-UPDOWN` tunes, byte for
-  byte. With the default LT235/85R16, 12 to 18 shift points per tune land 0.5 mph higher.
+  byte. With the default LT235/85R16, 12 to 18 shift points per tune land 0.5 mph higher. Lockup
+  speeds are not changed.
 - **Possible gear hunting:** a throttle range where a downshift speed is above its matching upshift.
   Equal speeds are not flagged, because Power Hungry's own library has them. The six curves are
   described in [Shift schedule](#shift-schedule).
@@ -334,10 +336,13 @@ serial shows "The chip serial does not match this file."
   `0x124aa`. The editor shows the other idle-curve points and does not change them.
 - **Converter lockup:** the lock and unlock speeds of 2nd, 3rd and 4th gear against pedal, in mph,
   with the same speedometer conversion as the shift points. A lock speed of 127 mph means the
-  converter never locks there. The editor warns where an unlock speed is at or above the lock speed.
+  converter never locks there. For an unlock speed, the editor treats 127 mph as an ordinary speed.
+  The editor warns where an unlock speed is at or above the lock speed, and the only exception is a
+  lock speed of 127 mph (never). The exact PCM behavior at an unlock speed of 127 mph is not
+  verified. The editor stores no lockup speed above 127 mph.
 - **Shift firmness:** the line-pressure adders of the 1→2, 2→3 and 3→4 upshifts against pedal, in
   the PCM's own units. A higher value is a firmer shift.
-- **Fuel and power, timing and ICP:** twelve grids, each with its axes in rpm, degrees or PCM units,
+- **Fuel and power, timing and ICP:** twelve grids, each with its axes in rpm or PCM units (timing values show in degrees),
   a scale-by-percent tool and a reset. Wrong values here can damage the engine.
 - The [calibration map](docs/tde1-calibration-map.md) lists every address.
 

@@ -2,6 +2,7 @@
 
 import type * as React from "react";
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
+import { cn } from "cn";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +39,7 @@ export function UnitHeading({
       {children}{" "}
       <span
         aria-hidden="true"
-        className={`font-normal text-muted-foreground${hideUnitWhenNarrow ? "max-sm:hidden" : ""}`}
+        className={cn("font-normal text-muted-foreground", hideUnitWhenNarrow && "max-sm:hidden")}
       >
         {unit}
       </span>

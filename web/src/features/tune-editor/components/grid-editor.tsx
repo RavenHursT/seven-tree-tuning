@@ -99,6 +99,10 @@ interface GridCellProps {
   value: GridValueFormat;
   unreached: boolean;
   onChange(row: number, col: number, raw: number): void;
+  /** The first keystroke of an edit: the text is not committed until the draft ends. */
+  onDraftStart(): void;
+  /** Blur, Enter or Escape: the edit is committed or cancelled. */
+  onDraftEnd(): void;
 }
 
 /**
@@ -118,6 +122,8 @@ function GridCell({
   value,
   unreached,
   onChange,
+  onDraftStart,
+  onDraftEnd,
 }: GridCellProps) {
   const originalId = React.useId();
   const [draft, setDraft] = React.useState<string | null>(null);
@@ -133,7 +139,13 @@ function GridCell({
     onChange(row, col, next);
   }
 
+  function endDraft() {
+    setDraft(null);
+    onDraftEnd();
+  }
+
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+    if (draft === null) onDraftStart();
     setDraft(event.target.value);
     const parsed = parseDecimal(event.target.value);
     if (parsed === null) return;
@@ -146,11 +158,11 @@ function GridCell({
       onChange(row, col, original);
     }
     committedSinceFocus.current = false;
-    setDraft(null);
+    endDraft();
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") setDraft(null);
+    if (event.key === "Enter") endDraft();
     else if (event.key === "Escape") cancelEdit();
   }
 
@@ -184,7 +196,7 @@ function GridCell({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onFocus={handleFocus}
-        onBlur={() => setDraft(null)}
+        onBlur={endDraft}
       />
       {changed ? (
         <span id={originalId} className="sr-only">
@@ -233,10 +245,36 @@ function isArrow(key: string): key is Arrow {
   return key in ARROW_STEPS;
 }
 
-/** Moves focus one cell with an arrow key, and stays on the edge cell at the edge of the grid. */
+function hasModifier(event: React.KeyboardEvent<HTMLElement>): boolean {
+  return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
+}
+
+/**
+ * True when Left or Right may leave the field: the caret is at the start (Left) or the end (Right)
+ * of the text, or the whole text is selected. Anywhere else the arrow moves the caret.
+ */
+function caretAllowsLeaving(input: HTMLInputElement, key: Arrow): boolean {
+  const { selectionStart: start, selectionEnd: end, value } = input;
+  if (start === null || end === null) return true;
+  if (start === 0 && end === value.length) return true;
+  if (start !== end) return false;
+  return key === "ArrowLeft" ? start === 0 : start === value.length;
+}
+
+function mayMove(event: React.KeyboardEvent<HTMLElement>, input: HTMLInputElement, key: Arrow) {
+  if (key === "ArrowUp" || key === "ArrowDown") return true;
+  return !hasModifier(event) && caretAllowsLeaving(input, key);
+}
+
+/**
+ * Moves focus one cell with an arrow key, and stays on the edge cell at the edge of the grid. Left
+ * and Right move only from the start or end of the text (or with the whole text selected) and
+ * with no Alt, Ctrl, Meta or Shift held, so they still move the caret and select text.
+ */
 function moveFocus(event: React.KeyboardEvent<HTMLElement>, rows: number, cols: number) {
   const input = event.target;
   if (!(input instanceof HTMLInputElement) || !isArrow(event.key)) return;
+  if (!mayMove(event, input, event.key)) return;
   const [rowStep, colStep] = ARROW_STEPS[event.key];
   const row = Math.min(rows - 1, Math.max(0, Number(input.dataset.row) + rowStep));
   const col = Math.min(cols - 1, Math.max(0, Number(input.dataset.col) + colStep));
@@ -303,12 +341,22 @@ function changedText(count: number): string {
 }
 
 interface GridToolbarProps {
+  /** The count shown as text, which follows every keystroke. */
   changedCells: number;
+  /** The count the status line announces: it changes only when an edit is committed. */
+  announcedCells: number;
+  gridLabel: string;
   onScale(factor: number): void;
   onReset(): void;
 }
 
-function GridToolbar({ changedCells, onScale, onReset }: GridToolbarProps) {
+function GridToolbar({
+  changedCells,
+  announcedCells,
+  gridLabel,
+  onScale,
+  onReset,
+}: GridToolbarProps) {
   const unavailable = changedCells === 0;
 
   return (
@@ -328,8 +376,12 @@ function GridToolbar({ changedCells, onScale, onReset }: GridToolbarProps) {
         <ArrowCounterClockwiseIcon data-icon="inline-start" />
         Reset grid
       </Button>
-      <p role="status" className="text-xs text-muted-foreground">
+      <p aria-hidden="true" className="text-xs text-muted-foreground">
         {changedText(changedCells)}
+      </p>
+      {/* Present before its text changes, and changed only when an edit is committed. */}
+      <p role="status" className="sr-only">
+        {gridLabel}: {changedText(announcedCells)}
       </p>
     </div>
   );
@@ -351,13 +403,21 @@ export function GridEditor(props: GridEditorProps) {
   const rows = rowAxis.headers.length;
   const cols = colAxis.headers.length;
   const changedCells = cells.filter((cell, at) => cell !== originalCells[at]).length;
+  // The count before the cell being typed in was touched; null while no cell is being typed in.
+  const [heldCount, setHeldCount] = React.useState<number | null>(null);
   const axesId = React.useId();
   const chars = longestText(props);
   const anyUnreached = [...rowAxis.headers, ...colAxis.headers].some((header) => !header.reached);
 
   return (
     <div role="group" aria-label={label} className="flex min-w-0 flex-col gap-3">
-      <GridToolbar changedCells={changedCells} onScale={props.onScale} onReset={props.onReset} />
+      <GridToolbar
+        changedCells={changedCells}
+        announcedCells={heldCount ?? changedCells}
+        gridLabel={label}
+        onScale={props.onScale}
+        onReset={props.onReset}
+      />
       {/* Outside the scrolling table, so it stays in view while a wide grid is scrolled. */}
       <div id={axesId} className="text-xs text-muted-foreground">
         <p>{axisCaption("Rows", rowAxis)}</p>
@@ -366,7 +426,9 @@ export function GridEditor(props: GridEditorProps) {
       <Table className="w-max" aria-describedby={axesId} data-grid-id={props.gridId}>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableCell className="sticky left-0 z-[1] bg-card" />
+            <TableHead className="sticky left-0 z-[1] bg-card">
+              <span className="sr-only">Rows, columns</span>
+            </TableHead>
             {colAxis.headers.map((header, col) => (
               <ColumnHeader key={col} header={header} />
             ))}
@@ -390,6 +452,8 @@ export function GridEditor(props: GridEditorProps) {
                   value={value}
                   unreached={!rowHeader.reached || !colHeader.reached}
                   onChange={onCellChange}
+                  onDraftStart={() => setHeldCount((held) => held ?? changedCells)}
+                  onDraftEnd={() => setHeldCount(null)}
                 />
               ))}
             </TableRow>

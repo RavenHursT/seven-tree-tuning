@@ -14,7 +14,7 @@ import { summarizeConverterLockup } from "../state/transmission-summaries";
 import { useTuneEditor } from "../tune-editor-provider";
 
 const LOCKUP_HELP =
-  "The torque converter locks in 2nd, 3rd and 4th gear at or above the lock speed and unlocks below the unlock speed, for each accelerator pedal position. Lock speed and Speedometer are the same value in two units, like shift points: the first is the speed stored in the tune, the second is the road speed on the tires entered. A lock speed of 127 mph is shown as never: the converter does not lock at that pedal position. An unlock speed of 127 mph means it unlocks below 127 mph, so the converter cannot stay locked there. Keep each unlock speed below its lock speed, or the converter locks and releases again and again.";
+  "The torque converter locks in 2nd, 3rd and 4th gear at or above the lock speed and unlocks below the unlock speed, for each accelerator pedal position. Lock speed and Speedometer are the same value in two units, like shift points: the first is the speed stored in the tune, the second is the road speed on the tires entered. A lock speed of 127 mph is shown as never: the converter does not lock at that pedal position. For an unlock speed, the editor treats 127 mph as an ordinary speed. The exact PCM behavior at an unlock speed of 127 mph is not verified. Keep each unlock speed below its lock speed, or the converter locks and releases again and again. The editor warns when an unlock speed is at or above the lock speed.";
 
 /** The converter lock and unlock speeds of 2nd, 3rd and 4th gear. */
 export function ConverterLockupModule() {
@@ -66,6 +66,7 @@ function ConverterLockupEditor() {
             }
             speedLabel={`${table.kind} speed`}
             rows={table.rows}
+            speedometerMaxMph={table.speedometerMaxMph}
             speedometerStep={speedometerStep}
             onSpeedChange={(index, mph) =>
               dispatch({ type: "lockupSpeedChanged", functionId: table.functionId, index, mph })

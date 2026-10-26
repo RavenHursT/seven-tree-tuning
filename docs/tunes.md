@@ -167,9 +167,9 @@ value needs Power Hungry's licensed definition file; those claims are marked.
 - **Other fuel and timing values** (for example the structures around `0x12ed2`–`0x13122`) are in
   the [calibration map](tde1-calibration-map.md) with their layout and reader. Their units are
   unknown unless the map gives one.
-- **Still open:** the unit and scale of injection control pressure, the code that writes RAM `0x18e`
-  (the row input of the maximum-fuel grid), and the exact extent of the IPR duty map. See the
-  calibration map.
+- **Still open:** the unit and scale of injection control pressure and the code that writes RAM
+  `0x18e` (the row input of the maximum-fuel grid). The IPR duty map is settled: it ends at
+  `0x13a65`. See the calibration map.
 
 ## Shift-curve format and build method
 

@@ -161,7 +161,7 @@ describe("Converter lockup", () => {
     expect(lockup.queryByText("Possible converter cycling")).not.toBeInTheDocument();
   });
 
-  it("shows an unlock speed of 127 mph as a number with a note, and no cycling warning", async () => {
+  it("shows an unlock speed of 127 mph as a number and warns that the converter cycles", async () => {
     const user = userEvent.setup();
     renderEditor();
     await openTune(user);
@@ -174,8 +174,27 @@ describe("Converter lockup", () => {
     await replaceText(user, lockField("4th gear unlock", "0% pedal", "unlock speed"), "127");
 
     expect(lockField("4th gear unlock", "100% pedal", "unlock speed")).toHaveValue("127.0");
-    expect(lockup.getAllByText("converter cannot stay locked here")).toHaveLength(2);
-    expect(lockup.queryByText("Possible converter cycling")).not.toBeInTheDocument();
+    expect(lockup.queryByText(/cannot stay locked/)).not.toBeInTheDocument();
+    expect(lockup.getByText("Possible converter cycling")).toBeInTheDocument();
+    expect(lockup.getByText("4th gear unlocks at or above its lock speed")).toBeInTheDocument();
+  });
+
+  it("refuses a speedometer value above 127 mph and shows 127 mph as never on a lock curve", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await openTune(user);
+    const speedometer = screen.getByRole("textbox", {
+      name: "4th gear lock, 100% pedal, speedometer (mph)",
+    });
+
+    await replaceText(user, speedometer, "200");
+
+    expect(speedometer).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Enter a number from 0 to 127.")).toBeInTheDocument();
+
+    await replaceText(user, speedometer, "127");
+
+    expect(lockField("4th gear lock", "100% pedal", "lock speed")).toHaveValue("never");
   });
 
   it("keeps its edits and shows them in the collapsed summary", async () => {
@@ -206,6 +225,11 @@ describe("Converter lockup", () => {
     const popover = await screen.findByRole("dialog", { name: "About converter lockup" });
     expect(
       within(popover).getByText(/A lock speed of 127 mph is shown as never/),
+    ).toBeInTheDocument();
+    expect(
+      within(popover).getByText(
+        /The exact PCM behavior at an unlock speed of 127 mph is not verified/,
+      ),
     ).toBeInTheDocument();
   });
 });

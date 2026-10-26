@@ -22,7 +22,6 @@ function makeRow(overrides: Partial<LockupCurveRow> = {}): LockupCurveRow {
     originalSpeedMph: 32,
     never: false,
     changed: false,
-    cannotStayLocked: false,
     ...overrides,
   };
 }
@@ -73,6 +72,7 @@ function renderTable(props: Partial<LockupCurveTableProps> = {}) {
       description="Locks at or above this speed"
       speedLabel="lock speed"
       rows={rows}
+      speedometerMaxMph={127}
       {...handlers}
       {...props}
     />,
@@ -110,9 +110,31 @@ describe("LockupCurveTable", () => {
 
     expect(field("0% pedal", "lock speed")).toHaveValue("never");
     expect(field("0% pedal", "speedometer")).toHaveValue("never");
-    expect(
-      screen.getByRole("button", { name: `${TITLE}, 0% pedal, set to never` }),
-    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("gives the Never button of a row that is already never no pressed state and marks it unavailable", () => {
+    renderTable();
+
+    const already = screen.getByRole("button", { name: `${TITLE}, 0% pedal, set to never` });
+    const other = screen.getByRole("button", { name: `${TITLE}, 100% pedal, set to never` });
+
+    expect(already).toHaveAttribute("aria-disabled", "true");
+    expect(already).not.toHaveAttribute("aria-pressed");
+    expect(other).not.toHaveAttribute("aria-pressed");
+    expect(other).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("limits the speedometer field to the speedometer value that stores 127 mph", async () => {
+    const user = userEvent.setup();
+    const { onSpeedoChange } = renderTable({ speedometerMaxMph: 138.5 });
+
+    const input = field("100% pedal", "speedometer");
+    await user.clear(input);
+    await user.type(input, "200");
+
+    expect(onSpeedoChange).not.toHaveBeenCalledWith(0, 200);
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Enter a number from 0 to 138.5.")).toBeInTheDocument();
   });
 
   it("reports a typed lock speed with the row's point index", async () => {
@@ -202,7 +224,6 @@ describe("LockupCurveTable", () => {
         speedoMph: 127,
         originalSpeedMph: 15,
         changed: true,
-        cannotStayLocked: true,
       }),
     ];
 
@@ -233,15 +254,10 @@ describe("LockupCurveTable", () => {
       expect(screen.queryByRole("button", { name: /set to never/ })).not.toBeInTheDocument();
     });
 
-    it("says the converter cannot stay locked on a row that is marked", () => {
+    it("puts no note on a row of 127 mph", () => {
       renderUnlock();
 
-      const note = screen.getByText("converter cannot stay locked here");
-      expect(note).toBeInTheDocument();
-      expect(
-        screen.getByRole("textbox", { name: "2nd gear unlock, 100% pedal, unlock speed (mph)" }),
-      ).toHaveAccessibleDescription(/converter cannot stay locked here/);
-      expect(screen.getAllByText("converter cannot stay locked here")).toHaveLength(1);
+      expect(screen.queryByText(/cannot stay locked/)).not.toBeInTheDocument();
     });
 
     it("shows the original unlock speed as a number", () => {

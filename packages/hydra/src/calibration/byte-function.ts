@@ -10,8 +10,10 @@ export type ByteFunctionGroup = "lockup" | "line-pressure";
 
 /**
  * The y byte of a lockup function that means 127 mph, which no vehicle reaches. In a lock function
- * the PCM then never locks in that gear at that pedal position. In an unlock function the PCM
- * unlocks below 127 mph, so the converter cannot stay locked there.
+ * 127 mph means the PCM never locks in that gear at that pedal position. In an unlock function the
+ * editor treats 127 mph as an ordinary speed and warns when it is at or above the lock speed. The
+ * exact PCM behavior at an unlock speed of 127 mph is not verified. The editor stores no lockup
+ * speed above this byte.
  */
 export const LOCKUP_NEVER_SPEED_RAW = 0xfe;
 
