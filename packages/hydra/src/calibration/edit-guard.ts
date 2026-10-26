@@ -1,3 +1,5 @@
+import { functionYOffset } from "./byte-function";
+import { gridCellOffsets } from "./grid";
 import { speedByteOffset } from "./shift-curve";
 import { TDE1 } from "./tde1";
 import type { StrategyDefinition } from "./tde1";
@@ -16,7 +18,10 @@ function describeOffsets(offsets: readonly number[]): string {
 
 /**
  * Image offsets an edit may change: every shift-speed byte of every curve (60 for TDE1, padding
- * included) and both bytes of both warm-idle values (4).
+ * included), both bytes of both warm-idle values (4), the y byte of every pair of the lockup (48)
+ * and line-pressure (30) functions, padding included, and every byte of every exposed grid cell
+ * (2676). Pedal bytes, axis functions, unused functions and the stored grid cells the PCM does not
+ * read are not editable.
  */
 export function editableOffsets(strategy: StrategyDefinition = TDE1): ReadonlySet<number> {
   const offsets = new Set<number>();
@@ -29,7 +34,19 @@ export function editableOffsets(strategy: StrategyDefinition = TDE1): ReadonlySe
     offsets.add(start);
     offsets.add(start + 1);
   }
+  addItemOffsets(offsets, strategy);
   return offsets;
+}
+
+function addItemOffsets(offsets: Set<number>, strategy: StrategyDefinition): void {
+  for (const definition of [...strategy.lockupFunctions, ...strategy.epcFunctions]) {
+    for (let index = 0; index < definition.pairCount; index++) {
+      offsets.add(functionYOffset(definition, index));
+    }
+  }
+  for (const definition of strategy.grids) {
+    for (const offset of gridCellOffsets(definition)) offsets.add(offset);
+  }
 }
 
 /** Ascending offsets at which two images of the same size differ. Throws RangeError on a size mismatch. */
@@ -51,7 +68,7 @@ export class UnexpectedImageChangeError extends Error {
   constructor(offsets: readonly number[]) {
     const count = `${offsets.length} byte${offsets.length === 1 ? "" : "s"}`;
     super(
-      `The edit changed ${count} outside the shift speeds and warm idle: ${describeOffsets(offsets)}.`,
+      `The edit changed ${count} outside the values the editor can change: ${describeOffsets(offsets)}.`,
     );
     this.name = "UnexpectedImageChangeError";
     this.offsets = offsets;
